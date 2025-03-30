@@ -55,8 +55,8 @@ const ContentContainer = styled.div`
   display: flex;
   flex-direction: column;
   position: relative;
-  /* Add padding at bottom for nav bar */
-  padding-bottom: 60px;
+  /* Add padding at bottom for nav bar and miniplayer */
+  padding-bottom: 125px; /* Increased to make room for both navbar and miniplayer */
   margin-bottom: env(safe-area-inset-bottom, 0);
 `;
 

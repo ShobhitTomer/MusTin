@@ -21,10 +21,11 @@ const CardStack = styled.div`
   position: relative;
   width: 100%;
   max-width: 320px;
-  height: 480px;
+  height: 480px; /* Reduced height to move cards up */
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 80px; /* Add space at bottom for miniplayer */
 `;
 
 const SwipeInstructions = styled.div`
@@ -216,7 +217,37 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     const filteredSongs = songsList.filter(
       (song) => !playlistSongIds.includes(song.id)
     );
-    setAvailableSongs(filteredSongs);
+
+    // Preserve the current order when updating available songs
+    if (availableSongs.length > 0) {
+      // Create a map of the current order
+      const currentOrder = new Map();
+      availableSongs.forEach((song, index) => {
+        currentOrder.set(song.id, index);
+      });
+
+      // Sort the filtered songs to preserve the current order
+      const newAvailableSongs = [...filteredSongs].sort((a, b) => {
+        const aIndex = currentOrder.has(a.id)
+          ? currentOrder.get(a.id)
+          : Infinity;
+        const bIndex = currentOrder.has(b.id)
+          ? currentOrder.get(b.id)
+          : Infinity;
+
+        if (aIndex === Infinity && bIndex === Infinity) {
+          // Both are new songs, keep them in their original order
+          return 0;
+        }
+
+        return aIndex - bIndex;
+      });
+
+      setAvailableSongs(newAvailableSongs);
+    } else {
+      // Initial load
+      setAvailableSongs(filteredSongs);
+    }
   }, [songsList, playlistSongIds]);
 
   // Initialize the stack whenever available songs change
