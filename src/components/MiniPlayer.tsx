@@ -23,7 +23,8 @@ const PlayerContainer = styled(motion.div)`
   border-top-right-radius: 16px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
   overflow: hidden;
-  z-index: 95; /* Make sure this is below navbar (100) but above other content */
+  z-index: 200; /* Make sure this is below navbar (100) but above other content */
+  transform: translateZ(0);
 `;
 
 const MiniPlayerBar = styled.div`

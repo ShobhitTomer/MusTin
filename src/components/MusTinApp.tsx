@@ -82,7 +82,7 @@ const NavBar = styled.div`
   align-items: center;
   justify-content: space-around;
   padding-bottom: env(safe-area-inset-bottom, 0);
-  z-index: 100;
+  z-index: 150;
   position: fixed;
   bottom: 0;
   left: 0;
