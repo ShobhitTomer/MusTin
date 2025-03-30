@@ -6,8 +6,8 @@
         "artist": "Dream, Alec Benjamin",
         "album": "Dream",
         "duration": 354,
-        "coverUrl": "./src/assets/images/changemyclothes.jpg",
-        "audioUrl": "./src/assets/songs/ChangeMyClothes.mp33"
+        "coverUrl": "/assets/Images/changemyclothes.jpg",
+        "audioUrl": "/assets/songs/ChangeMyClothes.mp33"
       },
       {
         "id": 2,
@@ -15,8 +15,8 @@
         "artist": "The Weeknd",
         "album": "After Hours",
         "duration": 200,
-        "coverUrl": "./src/assets/images/blinding_lights.jpeg",
-        "audioUrl": "./src/assets/songs/The_Weeknd-Blinding_Lights.mp3"
+        "coverUrl": "/assets/Images/blinding_lights.jpeg",
+        "audioUrl": "/assets/songs/The_Weeknd-Blinding_Lights.mp3"
       },
       {
         "id": 3,
@@ -24,8 +24,8 @@
         "artist": "Ed Sheeran",
         "album": "÷ (Divide)",
         "duration": 235,
-        "coverUrl": "/src/assets/images/shapeOfYou.jpeg",
-        "audioUrl": "/src/assets/songs/Ed_Sheeran-Shape_Of_You.mp3"
+        "coverUrl": "./public/assets/Images/shapeOfYou.jpeg",
+        "audioUrl": "./public/assets/songs/Ed_Sheeran-Shape_Of_You.mp3"
       },
       {
         "id": 4,
