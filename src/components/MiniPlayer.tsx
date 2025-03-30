@@ -207,11 +207,7 @@ interface MiniPlayerProps {
   onMinimize: () => void;
 }
 
-const MiniPlayer: React.FC<MiniPlayerProps> = ({
-  playerType,
-  onClose,
-  onMinimize,
-}) => {
+const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
   const {
     currentSong,
     isPlaying,
