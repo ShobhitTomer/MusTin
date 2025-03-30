@@ -6,7 +6,7 @@
         "artist": "Dream, Alec Benjamin",
         "album": "Dream",
         "duration": 354,
-        "coverUrl": "/assets/Images/changemyclothes.jpg",
+        "coverUrl": "/assets/images/changemyclothes.jpg",
         "audioUrl": "/assets/songs/ChangeMyClothes.mp3"
       },
       {
@@ -15,7 +15,7 @@
         "artist": "The Weeknd",
         "album": "After Hours",
         "duration": 200,
-        "coverUrl": "/assets/Images/blinding_lights.jpeg",
+        "coverUrl": "/assets/images/blinding_lights.jpeg",
         "audioUrl": "/assets/songs/The_Weeknd-Blinding_Lights.mp3"
       },
       {
@@ -24,7 +24,7 @@
         "artist": "Ed Sheeran",
         "album": "÷ (Divide)",
         "duration": 235,
-        "coverUrl": "/assets/Images/shapeOfYou.jpeg",
+        "coverUrl": "/assets/images/shapeOfYou.jpeg",
         "audioUrl": "/assets/songs/Ed_Sheeran-Shape_Of_You.mp3"
       },
       {
@@ -33,7 +33,7 @@
         "artist": "Queen",
         "album": "A Night at the Opera",
         "duration": 354,
-        "coverUrl": "/assets/Images/bohemian_raspody.jpg",
+        "coverUrl": "/assets/images/bohemian_raspody.jpg",
         "audioUrl": "/assets/songs/Queen-Bohemian_Rhapsody.mp3"
       },
       {
@@ -42,7 +42,7 @@
         "artist": "The Weeknd",
         "album": "Starboy",
         "duration": 200,
-        "coverUrl": "/assets/Images/starboy.png",
+        "coverUrl": "/assets/images/starboy.png",
         "audioUrl": "/assets/songs/starboy.mp3"
       }
     ]
