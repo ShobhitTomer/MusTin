@@ -24,6 +24,7 @@ const PlayerContainer = styled(motion.div)`
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
   overflow: hidden;
   z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0);
 `;
 
 const MiniPlayerBar = styled.div`
@@ -76,6 +77,7 @@ const ControlButton = styled(motion.button)`
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 
   &:active {
     color: #fff;
@@ -123,6 +125,61 @@ const CloseButton = styled(ControlButton)`
   z-index: 10;
 `;
 
+const ExpandedPlayer = styled(motion.div)`
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+`;
+
+const ExpandedAlbumArt = styled.div<{ imageUrl: string }>`
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  background-image: url(${(props) => props.imageUrl});
+  background-size: cover;
+  background-position: center;
+  margin: 20px 0;
+  box-shadow: ${({ theme }) => theme.shadows.medium};
+`;
+
+const ExpandedInfo = styled.div`
+  text-align: center;
+  margin-bottom: 20px;
+  width: 100%;
+`;
+
+const ExpandedTitle = styled.h2`
+  font-size: 22px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 8px;
+`;
+
+const ExpandedArtist = styled.h3`
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+`;
+
+const ControlsRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 20px;
+  width: 100%;
+`;
+
+const TimeInfo = styled.div`
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 8px;
+`;
+
 interface MiniPlayerProps {
   onClose: () => void;
 }
@@ -136,8 +193,11 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ onClose }) => {
     duration,
     playNext,
     playPrevious,
+    seekTo,
   } = useAudio();
+
   const [expanded, setExpanded] = useState(false);
+  const [isSeeking, setIsSeeking] = useState(false);
 
   if (!currentSong) return null;
 
@@ -145,6 +205,32 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ onClose }) => {
 
   const handleExpandClick = () => {
     setExpanded(!expanded);
+  };
+
+  // Format time display (mm:ss)
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // Handle seeking on the progress bar in expanded view
+  const handleSeek = (
+    e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>
+  ) => {
+    if (!isSeeking) return;
+
+    const progressBar = e.currentTarget;
+    const rect = progressBar.getBoundingClientRect();
+
+    // Get the x position from either mouse or touch event
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+
+    const clickPosition = clientX - rect.left;
+    const percentage = clickPosition / rect.width;
+    const newTime = duration * percentage;
+
+    seekTo(Math.max(0, Math.min(newTime, duration)));
   };
 
   return (
@@ -156,65 +242,60 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ onClose }) => {
     >
       <AnimatePresence>
         {expanded && (
-          <motion.div
+          <ExpandedPlayer
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            style={{
-              padding: "20px",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-            }}
           >
             <CloseButton onClick={onClose}>
               <FaTimes size={16} />
             </CloseButton>
 
-            <div style={{ width: 200, height: 200, margin: "20px 0" }}>
-              <MiniAlbumArt
-                imageUrl={currentSong.coverUrl}
-                style={{ width: "100%", height: "100%", borderRadius: 12 }}
-              />
-            </div>
+            <ExpandedAlbumArt imageUrl={currentSong.coverUrl} />
 
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <MiniTitle style={{ fontSize: 20, marginBottom: 8 }}>
-                {currentSong.title}
-              </MiniTitle>
-              <MiniArtist style={{ fontSize: 16 }}>
-                {currentSong.artist}
-              </MiniArtist>
-            </div>
+            <ExpandedInfo>
+              <ExpandedTitle>{currentSong.title}</ExpandedTitle>
+              <ExpandedArtist>{currentSong.artist}</ExpandedArtist>
+            </ExpandedInfo>
 
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 24,
-                marginBottom: 20,
-                width: "100%",
-              }}
+              style={{ width: "100%", padding: "0 10px", marginBottom: "10px" }}
+              onMouseDown={() => setIsSeeking(true)}
+              onMouseUp={() => setIsSeeking(false)}
+              onMouseLeave={() => setIsSeeking(false)}
+              onMouseMove={handleSeek}
+              onTouchStart={() => setIsSeeking(true)}
+              onTouchEnd={() => setIsSeeking(false)}
+              onTouchMove={handleSeek}
             >
+              <ProgressBar style={{ height: "6px", borderRadius: "3px" }}>
+                <Progress width={`${progressPercentage}%`} />
+              </ProgressBar>
+              <TimeInfo>
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </TimeInfo>
+            </div>
+
+            <ControlsRow>
               <ControlButton onClick={playPrevious} whileTap={{ scale: 0.9 }}>
-                <FaBackward size={20} />
+                <FaBackward size={24} />
               </ControlButton>
 
               <PlayPauseButton
                 onClick={togglePlay}
                 whileTap={{ scale: 0.9 }}
-                style={{ width: 50, height: 50 }}
+                style={{ width: 60, height: 60 }}
               >
-                {isPlaying ? <FaPause size={20} /> : <FaPlay size={20} />}
+                {isPlaying ? <FaPause size={24} /> : <FaPlay size={24} />}
               </PlayPauseButton>
 
               <ControlButton onClick={playNext} whileTap={{ scale: 0.9 }}>
-                <FaForward size={20} />
+                <FaForward size={24} />
               </ControlButton>
-            </div>
-          </motion.div>
+            </ControlsRow>
+          </ExpandedPlayer>
         )}
       </AnimatePresence>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import {
   motion,
@@ -6,6 +6,7 @@ import {
   useTransform,
   PanInfo,
   AnimatePresence,
+  useAnimation,
 } from "framer-motion";
 import { FaPlay, FaHeart, FaTimes, FaMusic } from "react-icons/fa";
 import { useAudio } from "../context/AudioContext";
@@ -20,6 +21,8 @@ const SwipeDeckContainer = styled.div`
   padding: 20px;
   overflow: hidden;
   position: relative;
+  touch-action: manipulation;
+  overscroll-behavior: none;
 `;
 
 const CardStack = styled.div`
@@ -30,6 +33,8 @@ const CardStack = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 `;
 
 const EmptyDeck = styled.div`
@@ -69,6 +74,7 @@ const Card = styled(motion.div)`
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
+  touch-action: none; /* Prevent default touch actions */
   cursor: grab;
 
   &:active {
@@ -166,6 +172,7 @@ const SwipeIndicator = styled(motion.div)<{ direction: "left" | "right" }>`
     ${(props) => (props.direction === "left" ? "-12deg" : "12deg")}
   );
   pointer-events: none;
+  z-index: 20;
 `;
 
 interface SwipeDeckProps {
@@ -180,6 +187,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
   onPlay,
 }) => {
   const { songsList, playSong } = useAudio();
+  const cardStackRef = useRef<HTMLDivElement>(null);
 
   // Filter out songs that are already in the playlist
   const availableSongs = songsList.filter(
@@ -188,6 +196,11 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
 
   // Current displayed songs (showing 3 for stack effect)
   const [currentStack, setCurrentStack] = useState<Song[]>([]);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [dragEnabled, setDragEnabled] = useState(true);
+
+  // Control animation externally
+  const controls = useAnimation();
 
   // Setup initial stack
   useEffect(() => {
@@ -208,19 +221,62 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
   const swipeLeftOpacity = useTransform(x, [-100, -20, 0], [1, 0, 0]);
   const swipeRightOpacity = useTransform(x, [0, 20, 100], [0, 0, 1]);
 
+  // Handle swipe/drag start
+  const handleDragStart = () => {
+    if (!dragEnabled || isAnimating) return false;
+    return true;
+  };
+
   // Handle end of drag
   const handleDragEnd = (info: PanInfo) => {
-    if (!currentStack.length) return;
+    if (!currentStack.length || isAnimating) return;
 
     const currentSong = currentStack[0];
 
+    // Disable drag during animation
+    setDragEnabled(false);
+    setIsAnimating(true);
+
     if (info.offset.x > 100) {
       // Swipe right - add to playlist
-      onAdd(currentSong.id);
-      handleNextCard();
+      controls
+        .start({
+          x: 500,
+          opacity: 0,
+          transition: { duration: 0.3 },
+        })
+        .then(() => {
+          onAdd(currentSong.id);
+          handleNextCard();
+          x.set(0); // Reset position
+          setIsAnimating(false);
+          setDragEnabled(true);
+        });
     } else if (info.offset.x < -100) {
       // Swipe left - discard
-      handleNextCard();
+      controls
+        .start({
+          x: -500,
+          opacity: 0,
+          transition: { duration: 0.3 },
+        })
+        .then(() => {
+          handleNextCard();
+          x.set(0); // Reset position
+          setIsAnimating(false);
+          setDragEnabled(true);
+        });
+    } else {
+      // Return to center if not swiped far enough
+      controls
+        .start({
+          x: 0,
+          transition: { type: "spring", stiffness: 300, damping: 20 },
+        })
+        .then(() => {
+          setIsAnimating(false);
+          setDragEnabled(true);
+        });
     }
   };
 
@@ -238,38 +294,63 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
   };
 
   // Handle play button click
-  const handlePlay = (song: Song) => {
+  const handlePlay = (song: Song, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card swipe when clicking play
     playSong(song);
     onPlay(song.id);
   };
 
   // Handle swipe action buttons
-  const handleDiscard = () => {
-    if (!currentStack.length) return;
-    x.set(-200); // animate card swiping left
-    setTimeout(() => {
-      handleNextCard();
-      x.set(0); // reset position for next card
-    }, 300);
+  const handleDiscard = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentStack.length || isAnimating) return;
+
+    setIsAnimating(true);
+    setDragEnabled(false);
+
+    controls
+      .start({
+        x: -500,
+        opacity: 0,
+        transition: { duration: 0.3 },
+      })
+      .then(() => {
+        handleNextCard();
+        x.set(0); // Reset position
+        setIsAnimating(false);
+        setDragEnabled(true);
+      });
   };
 
-  const handleAddToPlaylist = () => {
-    if (!currentStack.length) return;
+  const handleAddToPlaylist = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentStack.length || isAnimating) return;
+
     const currentSong = currentStack[0];
-    onAdd(currentSong.id);
-    x.set(200); // animate card swiping right
-    setTimeout(() => {
-      handleNextCard();
-      x.set(0); // reset position for next card
-    }, 300);
+    setIsAnimating(true);
+    setDragEnabled(false);
+
+    controls
+      .start({
+        x: 500,
+        opacity: 0,
+        transition: { duration: 0.3 },
+      })
+      .then(() => {
+        onAdd(currentSong.id);
+        handleNextCard();
+        x.set(0); // Reset position
+        setIsAnimating(false);
+        setDragEnabled(true);
+      });
   };
 
   return (
     <SwipeDeckContainer>
-      <CardStack>
+      <CardStack ref={cardStackRef}>
         <AnimatePresence>
           {currentStack.length === 0 ? (
-            <EmptyDeck>
+            <EmptyDeck key="empty-deck">
               <FaMusic />
               <h3>No More Songs</h3>
               <p>
@@ -291,11 +372,14 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
                     y: index * 10, // Stack effect - cards are slightly offset
                     ...(isDraggable ? { x, rotate } : {}),
                   }}
-                  drag={isDraggable ? "x" : false}
+                  drag={isDraggable && dragEnabled ? "x" : false}
                   dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.7} // Make dragging more responsive
+                  dragTransition={{ bounceStiffness: 300, bounceDamping: 30 }}
+                  onDragStart={handleDragStart}
                   onDragEnd={(_, info) => isDraggable && handleDragEnd(info)}
                   initial={index === 0 ? { x: 300, opacity: 0 } : false}
-                  animate={index === 0 ? { x: 0, opacity: 1 } : {}}
+                  animate={index === 0 ? controls : {}}
                   exit={index === 0 ? { x: -300, opacity: 0 } : {}}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
@@ -334,7 +418,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
                       </ActionButton>
 
                       <PlayButton
-                        onClick={() => handlePlay(song)}
+                        onClick={(e) => handlePlay(song, e)}
                         whileTap={{ scale: 0.9 }}
                       >
                         <FaPlay size={20} />

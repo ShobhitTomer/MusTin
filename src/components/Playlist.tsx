@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import styled from "styled-components";
-import { motion, PanInfo, AnimatePresence } from "framer-motion";
+import { motion, PanInfo, AnimatePresence, useAnimation } from "framer-motion";
 import { FaMusic, FaPlay, FaTrash } from "react-icons/fa";
 import { useAudio } from "../context/AudioContext";
 import { Song } from "../types/types";
@@ -12,6 +12,8 @@ const PlaylistContainer = styled.div`
   width: 100%;
   padding: 20px;
   overflow: hidden;
+  touch-action: manipulation;
+  overscroll-behavior: none;
 `;
 
 const PlaylistHeader = styled.div`
@@ -62,8 +64,16 @@ const EmptyPlaylist = styled.div`
 
 const PlaylistItems = styled.div`
   flex: 1;
-  overflow-y: hidden;
+  overflow-y: auto;
   position: relative;
+  -webkit-overflow-scrolling: touch;
+
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  &::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, and Opera */
+  }
 `;
 
 const PlaylistItemCard = styled(motion.div)`
@@ -75,6 +85,7 @@ const PlaylistItemCard = styled(motion.div)`
   display: flex;
   height: 90px;
   position: relative;
+  touch-action: pan-y;
 `;
 
 const ItemImage = styled.div<{ imageUrl: string }>`
@@ -128,6 +139,7 @@ const ItemPlayButton = styled(motion.button)`
   transform: translateY(-50%);
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 2;
 `;
 
 const DeleteOverlay = styled(motion.div)`
@@ -144,6 +156,7 @@ const DeleteOverlay = styled(motion.div)`
   border-top-right-radius: 12px;
   border-bottom-right-radius: 12px;
   font-weight: bold;
+  z-index: 1;
 `;
 
 const PlayListInstruction = styled.p`
@@ -165,6 +178,16 @@ const Playlist: React.FC<PlaylistProps> = ({
   onPlay,
 }) => {
   const { playSong, getSongById } = useAudio();
+  const [swipingItemId, setSwipingItemId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Track which item is showing the delete overlay
+  const [showDeleteOverlay, setShowDeleteOverlay] = useState<number | null>(
+    null
+  );
+
+  // Animation controls for each item
+  const controls = useAnimation();
 
   // Get the full song details for songs in the playlist
   const playlistSongs = playlistSongIds
@@ -172,16 +195,58 @@ const Playlist: React.FC<PlaylistProps> = ({
     .filter(Boolean) as Song[];
 
   // Handle playing a song
-  const handlePlay = (song: Song) => {
+  const handlePlay = (song: Song, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering swipe when clicking play
     playSong(song);
     onPlay(song.id);
+  };
+
+  // Handle drag start for swipe-to-delete
+  const handleDragStart = (songId: number) => {
+    if (isDeleting) return false;
+    setSwipingItemId(songId);
+    return true;
+  };
+
+  // Handle drag movements for visual cues
+  const handleDrag = (info: PanInfo, songId: number) => {
+    if (info.offset.x < -40) {
+      setShowDeleteOverlay(songId);
+    } else {
+      setShowDeleteOverlay(null);
+    }
   };
 
   // Handle drag end for swipe-to-delete
   const handleDragEnd = (songId: number, info: PanInfo) => {
     if (info.offset.x < -100) {
       // Swipe left far enough to delete
-      onRemove(songId);
+      setIsDeleting(true);
+
+      // Animate item out before removing
+      controls
+        .start({
+          x: -300,
+          opacity: 0,
+          transition: { duration: 0.2 },
+        })
+        .then(() => {
+          onRemove(songId);
+          setSwipingItemId(null);
+          setShowDeleteOverlay(null);
+          setIsDeleting(false);
+        });
+    } else {
+      // Reset to original position
+      controls
+        .start({
+          x: 0,
+          transition: { type: "spring", stiffness: 500, damping: 30 },
+        })
+        .then(() => {
+          setSwipingItemId(null);
+          setShowDeleteOverlay(null);
+        });
     }
   };
 
@@ -205,10 +270,15 @@ const Playlist: React.FC<PlaylistProps> = ({
                 <PlaylistItemCard
                   key={song.id}
                   drag="x"
+                  dragDirectionLock
                   dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={{ left: 0.5, right: 0 }} // Only elastic when swiping left
+                  onDragStart={() => handleDragStart(song.id)}
+                  onDrag={(_, info) => handleDrag(info, song.id)}
                   onDragEnd={(_, info) => handleDragEnd(song.id, info)}
+                  animate={swipingItemId === song.id ? controls : undefined}
                   initial={{ opacity: 0, x: 100 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  //animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                   transition={{ duration: 0.2 }}
                   layout
@@ -220,7 +290,7 @@ const Playlist: React.FC<PlaylistProps> = ({
                   </ItemInfo>
 
                   <ItemPlayButton
-                    onClick={() => handlePlay(song)}
+                    onClick={(e) => handlePlay(song, e)}
                     whileTap={{ scale: 0.9 }}
                   >
                     <FaPlay size={14} />
@@ -228,9 +298,9 @@ const Playlist: React.FC<PlaylistProps> = ({
 
                   <DeleteOverlay
                     initial={{ width: 0 }}
-                    style={{ width: 0 }}
-                    animate={{ width: 0 }}
-                    exit={{ width: 0 }}
+                    animate={{
+                      width: showDeleteOverlay === song.id ? 100 : 0,
+                    }}
                     transition={{ duration: 0.2 }}
                   >
                     <FaTrash size={20} />

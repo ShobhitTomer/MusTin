@@ -6,6 +6,7 @@ import SwipeDeck from "./SwipeDeck";
 import Playlist from "./Playlist";
 import { AudioProvider, useAudio } from "../context/AudioContext";
 import MiniPlayer from "./MiniPlayer";
+import AssetPreloader from "./AssetPreloader";
 
 const AppContainer = styled.div`
   display: flex;
@@ -18,6 +19,8 @@ const AppContainer = styled.div`
   top: 0;
   left: 0;
   background: ${({ theme }) => theme.colors.backgroundGradient};
+  overscroll-behavior: none;
+  touch-action: manipulation;
 `;
 
 const StatusBar = styled.div`
@@ -63,6 +66,8 @@ const Screen = styled(motion.div)`
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 `;
 
 const NavBar = styled.div`
@@ -74,6 +79,7 @@ const NavBar = styled.div`
   align-items: center;
   justify-content: space-around;
   padding-bottom: env(safe-area-inset-bottom, 0);
+  z-index: 20;
 `;
 
 const NavButton = styled.button<{ active?: boolean }>`
@@ -88,6 +94,7 @@ const NavButton = styled.button<{ active?: boolean }>`
   font-size: 10px;
   gap: 4px;
   cursor: pointer;
+  transition: color 0.2s ease;
 
   &:active {
     opacity: 0.7;
@@ -104,6 +111,7 @@ const MusTinAppWrapper: React.FC = () => {
     AppScreen.DISCOVER
   );
   const [miniPlayerVisible, setMiniPlayerVisible] = useState(false);
+  const [appReady, setAppReady] = useState(false);
 
   // Use the audio context to manage playlist and playback
   const {
@@ -114,12 +122,38 @@ const MusTinAppWrapper: React.FC = () => {
     removeFromPlaylist,
     playSong,
     getSongById,
+    setIsLoading,
+    setActivePlayer,
   } = useAudio();
 
   // Initialize app on mount
   useEffect(() => {
+    // Register service worker
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/serviceWorker.js")
+          .then((registration) => {
+            console.log(
+              "ServiceWorker registration successful with scope: ",
+              registration.scope
+            );
+          })
+          .catch((error) => {
+            console.log("ServiceWorker registration failed: ", error);
+          });
+      });
+    }
+
+    // Load songs data
     loadSongs();
   }, [loadSongs]);
+
+  // Handle asset preloading completion
+  const handlePreloadComplete = () => {
+    setAppReady(true);
+    setIsLoading(false);
+  };
 
   // Show mini player when a song is selected
   useEffect(() => {
@@ -128,13 +162,32 @@ const MusTinAppWrapper: React.FC = () => {
     }
   }, [currentSong]);
 
-  // Handle playing a song
-  const handlePlaySong = (songId: number) => {
+  // Handle playing a song from discover screen
+  const handlePlayFromDiscover = (songId: number) => {
+    setActivePlayer("discover");
     const song = getSongById(songId);
     if (song) {
-      playSong(song);
+      playSong(song, "discover");
     }
   };
+
+  // Handle playing a song from playlist screen
+  const handlePlayFromPlaylist = (songId: number) => {
+    setActivePlayer("playlist");
+    const song = getSongById(songId);
+    if (song) {
+      playSong(song, "playlist");
+    }
+  };
+
+  // Update active player based on active screen
+  useEffect(() => {
+    if (activeScreen === AppScreen.DISCOVER) {
+      setActivePlayer("discover");
+    } else if (activeScreen === AppScreen.PLAYLIST) {
+      setActivePlayer("playlist");
+    }
+  }, [activeScreen, setActivePlayer]);
 
   // Animation variants for screen transitions
   const variants = {
@@ -151,6 +204,10 @@ const MusTinAppWrapper: React.FC = () => {
       opacity: 0,
     }),
   };
+
+  if (!appReady) {
+    return <AssetPreloader onComplete={handlePreloadComplete} />;
+  }
 
   return (
     <AppContainer>
@@ -175,7 +232,7 @@ const MusTinAppWrapper: React.FC = () => {
               <SwipeDeck
                 playlistSongIds={playlistSongs}
                 onAdd={addToPlaylist}
-                onPlay={handlePlaySong}
+                onPlay={handlePlayFromDiscover}
               />
             </Screen>
           )}
@@ -193,7 +250,7 @@ const MusTinAppWrapper: React.FC = () => {
               <Playlist
                 playlistSongIds={playlistSongs}
                 onRemove={removeFromPlaylist}
-                onPlay={handlePlaySong}
+                onPlay={handlePlayFromPlaylist}
               />
             </Screen>
           )}

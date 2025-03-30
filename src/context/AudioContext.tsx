@@ -9,7 +9,10 @@ import React, {
 import { Song } from "../types/types";
 import songsData from "../songs.json";
 
+type AudioPlayerType = "main" | "discover" | "playlist";
+
 interface AudioContextProps {
+  // General state
   currentSong: Song | null;
   isPlaying: boolean;
   volume: number;
@@ -18,6 +21,15 @@ interface AudioContextProps {
   repeat: "none" | "one" | "all";
   isShuffling: boolean;
   songsList: Song[];
+
+  // Playlist state
+  playlistSongs: number[];
+
+  // Player type functionality
+  activePlayer: AudioPlayerType;
+  setActivePlayer: (player: AudioPlayerType) => void;
+
+  // Basic playback controls
   play: () => void;
   pause: () => void;
   togglePlay: () => void;
@@ -27,13 +39,21 @@ interface AudioContextProps {
   playPrevious: () => void;
   toggleRepeat: () => void;
   toggleShuffle: () => void;
-  playSong: (song: Song) => void;
+
+  // Song and playlist management
+  playSong: (song: Song, playerType?: AudioPlayerType) => void;
   loadSongs: () => Promise<void>;
   getSongById: (id: number) => Song | undefined;
-  playlistSongs: number[];
   addToPlaylist: (songId: number) => void;
   removeFromPlaylist: (songId: number) => void;
   isInPlaylist: (songId: number) => boolean;
+
+  // Loading state
+  isLoading: boolean;
+  setIsLoading: (loading: boolean) => void;
+
+  // Asset preloading
+  preloadAssets: (songIds: number[]) => Promise<void>;
 }
 
 const AudioContext = createContext<AudioContextProps | undefined>(undefined);
@@ -41,6 +61,7 @@ const AudioContext = createContext<AudioContextProps | undefined>(undefined);
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  // Basic player state
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.7);
@@ -51,37 +72,118 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
   const [songsList, setSongsList] = useState<Song[]>([]);
   const [playbackOrder, setPlaybackOrder] = useState<number[]>([]);
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
-  // Add playlist functionality
   const [playlistSongs, setPlaylistSongs] = useState<number[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activePlayer, setActivePlayer] = useState<AudioPlayerType>("main");
 
-  // Add this to track if songs have been loaded
+  // Audio element references for different players
+  const audioRefs = useRef<Record<AudioPlayerType, HTMLAudioElement | null>>({
+    main: null,
+    discover: null,
+    playlist: null,
+  });
+
+  // Track if songs have been loaded
   const songsLoadedRef = useRef(false);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Track if event listeners are set up
+  const eventListenersSetupRef = useRef<Record<AudioPlayerType, boolean>>({
+    main: false,
+    discover: false,
+    playlist: false,
+  });
 
-  // Add to playlist
-  const addToPlaylist = (songId: number) => {
-    if (!playlistSongs.includes(songId)) {
-      setPlaylistSongs((prev) => [...prev, songId]);
+  // Initialize audio elements
+  useEffect(() => {
+    const playerTypes: AudioPlayerType[] = ["main", "discover", "playlist"];
+
+    playerTypes.forEach((type) => {
+      if (!audioRefs.current[type]) {
+        audioRefs.current[type] = new Audio();
+        setupEventListeners(type);
+      }
+    });
+
+    return () => {
+      // Cleanup audio elements
+      playerTypes.forEach((type) => {
+        if (audioRefs.current[type]) {
+          audioRefs.current[type]?.pause();
+          cleanupEventListeners(type);
+        }
+      });
+    };
+  }, []);
+
+  // Set up event listeners for an audio element
+  const setupEventListeners = (playerType: AudioPlayerType) => {
+    if (eventListenersSetupRef.current[playerType]) return;
+
+    const audio = audioRefs.current[playerType];
+    if (!audio) return;
+
+    audio.addEventListener("timeupdate", () => handleTimeUpdate(playerType));
+    audio.addEventListener("loadedmetadata", () =>
+      handleMetadataLoaded(playerType)
+    );
+    audio.addEventListener("ended", () => handleSongEnd(playerType));
+    audio.addEventListener("error", (e) =>
+      console.error(`Audio error (${playerType}):`, e)
+    );
+
+    eventListenersSetupRef.current[playerType] = true;
+  };
+
+  // Clean up event listeners for an audio element
+  const cleanupEventListeners = (playerType: AudioPlayerType) => {
+    const audio = audioRefs.current[playerType];
+    if (!audio) return;
+
+    audio.removeEventListener("timeupdate", () => handleTimeUpdate(playerType));
+    audio.removeEventListener("loadedmetadata", () =>
+      handleMetadataLoaded(playerType)
+    );
+    audio.removeEventListener("ended", () => handleSongEnd(playerType));
+    audio.removeEventListener("error", (e) =>
+      console.error(`Audio error (${playerType}):`, e)
+    );
+
+    eventListenersSetupRef.current[playerType] = false;
+  };
+
+  // Event handlers
+  const handleTimeUpdate = (playerType: AudioPlayerType) => {
+    if (playerType === activePlayer) {
+      setCurrentTime(audioRefs.current[playerType]?.currentTime || 0);
     }
   };
 
-  // Remove from playlist
-  const removeFromPlaylist = (songId: number) => {
-    setPlaylistSongs((prev) => prev.filter((id) => id !== songId));
+  const handleMetadataLoaded = (playerType: AudioPlayerType) => {
+    if (playerType === activePlayer) {
+      setDuration(audioRefs.current[playerType]?.duration || 0);
+    }
   };
 
-  // Check if song is in playlist
-  const isInPlaylist = (songId: number) => {
-    return playlistSongs.includes(songId);
+  const handleSongEnd = (playerType: AudioPlayerType) => {
+    if (playerType !== activePlayer) return;
+
+    if (repeat === "one") {
+      seekTo(0);
+      audioRefs.current[playerType]
+        ?.play()
+        .catch((err) => console.error("Replay error:", err));
+    } else if (
+      repeat === "all" ||
+      currentSongIndex < playbackOrder.length - 1
+    ) {
+      playNext();
+    } else {
+      // Last song and not repeating all
+      setIsPlaying(false);
+    }
   };
 
-  // Get song by ID
-  const getSongById = (id: number) => {
-    return songsList.find((song) => song.id === id);
-  };
-
-  // Load songs from JSON data - make this a useCallback to avoid recreation on each render
+  // Load songs from JSON data
   const loadSongs = useCallback(async (): Promise<void> => {
     if (songsLoadedRef.current) return; // Skip if already loaded
 
@@ -92,17 +194,25 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
       if (songs.length > 0 && !currentSong) {
         setCurrentSong(songs[0]);
       }
+
       // Mark as loaded to prevent future calls
       songsLoadedRef.current = true;
 
       // Update playback order after loading songs
       updatePlaybackOrder(songs, isShuffling);
+
+      // Preload the first few songs
+      if (songs.length > 0) {
+        await preloadAssets(
+          songs.slice(0, Math.min(3, songs.length)).map((song) => song.id)
+        );
+      }
     } catch (error) {
       console.error("Failed to load songs:", error);
     }
   }, [currentSong, isShuffling]);
 
-  // Update playback order function that doesn't depend on state
+  // Update playback order
   const updatePlaybackOrder = useCallback(
     (songs: Song[], shuffle: boolean) => {
       const indices = Array.from(Array(songs.length).keys());
@@ -127,78 +237,53 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     [currentSong]
   );
 
+  // Update playback order when shuffling or songs list changes
   useEffect(() => {
-    // Load songs on initial mount only
-    loadSongs();
-
-    audioRef.current = new Audio();
-    const audio = audioRef.current;
-
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("loadedmetadata", handleMetadataLoaded);
-    audio.addEventListener("ended", handleSongEnd);
-
-    return () => {
-      audio.pause();
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("loadedmetadata", handleMetadataLoaded);
-      audio.removeEventListener("ended", handleSongEnd);
-    };
-  }, [loadSongs]);
-
-  useEffect(() => {
-    if (currentSong) {
-      const audio = audioRef.current!;
-      audio.src = currentSong.audioUrl;
-      audio.volume = volume;
-
-      if (isPlaying) {
-        audio.play().catch((error) => console.error("Playback error:", error));
-      }
-    }
-  }, [currentSong]);
-
-  useEffect(() => {
-    // Update playback order when shuffling changes or songsList changes
     if (songsList.length > 0) {
       updatePlaybackOrder(songsList, isShuffling);
     }
   }, [isShuffling, songsList, updatePlaybackOrder]);
 
-  const handleTimeUpdate = () => {
-    setCurrentTime(audioRef.current?.currentTime || 0);
-  };
-
-  const handleMetadataLoaded = () => {
-    setDuration(audioRef.current?.duration || 0);
-  };
-
-  const handleSongEnd = () => {
-    if (repeat === "one") {
-      seekTo(0);
-      audioRef.current?.play();
-    } else if (
-      repeat === "all" ||
-      currentSongIndex < playbackOrder.length - 1
-    ) {
-      playNext();
-    } else {
-      // Last song and not repeating all
-      setIsPlaying(false);
+  // Playlist management
+  const addToPlaylist = (songId: number) => {
+    if (!playlistSongs.includes(songId)) {
+      setPlaylistSongs((prev) => [...prev, songId]);
     }
   };
 
+  const removeFromPlaylist = (songId: number) => {
+    setPlaylistSongs((prev) => prev.filter((id) => id !== songId));
+  };
+
+  const isInPlaylist = (songId: number) => {
+    return playlistSongs.includes(songId);
+  };
+
+  // Get song by ID
+  const getSongById = (id: number) => {
+    return songsList.find((song) => song.id === id);
+  };
+
+  // Basic playback controls
   const play = () => {
     if (!currentSong) return;
 
-    audioRef.current
+    // When playing, pause all other players
+    Object.keys(audioRefs.current).forEach((type) => {
+      const playerType = type as AudioPlayerType;
+      if (playerType !== activePlayer && audioRefs.current[playerType]) {
+        audioRefs.current[playerType]?.pause();
+      }
+    });
+
+    audioRefs.current[activePlayer]
       ?.play()
-      .catch((err) => console.error("Failed to play:", err));
+      .catch((err) => console.error(`Failed to play (${activePlayer}):`, err));
     setIsPlaying(true);
   };
 
   const pause = () => {
-    audioRef.current?.pause();
+    audioRefs.current[activePlayer]?.pause();
     setIsPlaying(false);
   };
 
@@ -212,15 +297,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setAudioVolume = (newVolume: number) => {
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
-    if (audioRef.current) {
-      audioRef.current.volume = clampedVolume;
-    }
+
+    // Set volume for all audio elements
+    Object.keys(audioRefs.current).forEach((type) => {
+      const playerType = type as AudioPlayerType;
+      if (audioRefs.current[playerType]) {
+        audioRefs.current[playerType]!.volume = clampedVolume;
+      }
+    });
+
     setVolume(clampedVolume);
   };
 
   const seekTo = (time: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
+    if (audioRefs.current[activePlayer]) {
+      audioRefs.current[activePlayer]!.currentTime = time;
       setCurrentTime(time);
     }
   };
@@ -230,7 +321,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const nextIndex = (currentSongIndex + 1) % playbackOrder.length;
     setCurrentSongIndex(nextIndex);
-    setCurrentSong(songsList[playbackOrder[nextIndex]]);
+
+    const nextSong = songsList[playbackOrder[nextIndex]];
+    if (nextSong) {
+      playSong(nextSong);
+    }
   };
 
   const playPrevious = () => {
@@ -246,7 +341,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     if (prevIndex < 0) prevIndex = playbackOrder.length - 1;
 
     setCurrentSongIndex(prevIndex);
-    setCurrentSong(songsList[playbackOrder[prevIndex]]);
+    const prevSong = songsList[playbackOrder[prevIndex]];
+    if (prevSong) {
+      playSong(prevSong);
+    }
   };
 
   const toggleRepeat = () => {
@@ -260,15 +358,111 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsShuffling(!isShuffling);
   };
 
-  const playSong = (song: Song) => {
+  // Play a specific song using the appropriate player
+  const playSong = (song: Song, playerType?: AudioPlayerType) => {
+    const targetPlayer = playerType || activePlayer;
+
+    // If we're switching player types, pause the current one
+    if (targetPlayer !== activePlayer) {
+      audioRefs.current[activePlayer]?.pause();
+      setActivePlayer(targetPlayer);
+    }
+
+    // Update song index in playback order
     const songIndex = songsList.findIndex((s) => s.id === song.id);
     if (songIndex !== -1) {
       const playbackOrderIndex = playbackOrder.findIndex(
         (i) => i === songIndex
       );
-      setCurrentSongIndex(playbackOrderIndex !== -1 ? playbackOrderIndex : 0);
-      setCurrentSong(song);
+      if (playbackOrderIndex !== -1) {
+        setCurrentSongIndex(playbackOrderIndex);
+      }
+    }
+
+    // Set the current song
+    setCurrentSong(song);
+
+    // Update audio source and play
+    const audio = audioRefs.current[targetPlayer];
+    if (audio) {
+      audio.src = song.audioUrl;
+      audio.volume = volume;
+
+      // Play the song
+      audio
+        .play()
+        .catch((error) =>
+          console.error(`Playback error (${targetPlayer}):`, error)
+        );
+
       setIsPlaying(true);
+    }
+  };
+
+  // Preload specific song assets (audio and cover art)
+  const preloadAssets = async (songIds: number[]): Promise<void> => {
+    if (songIds.length === 0) return;
+
+    // Get the full song objects
+    const songsToPreload = songIds
+      .map((id) => getSongById(id))
+      .filter((song): song is Song => !!song);
+
+    if (songsToPreload.length === 0) return;
+
+    // Preload cover images
+    const imagePromises = songsToPreload.map((song) => {
+      return new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve(); // Continue even if image fails
+        img.src = song.coverUrl;
+      });
+    });
+
+    // Preload audio files
+    const audioPromises = songsToPreload.map((song) => {
+      return new Promise<void>((resolve) => {
+        const audio = new Audio();
+
+        audio.oncanplaythrough = () => {
+          audio.pause();
+          resolve();
+        };
+
+        audio.onerror = () => {
+          console.error(`Failed to preload audio: ${song.audioUrl}`);
+          resolve(); // Continue even if audio fails
+        };
+
+        audio.src = song.audioUrl;
+        audio.load();
+
+        // Try to start and immediately pause to ensure it's in the browser cache
+        audio
+          .play()
+          .then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+          })
+          .catch(() => {
+            // Continue even if play/pause fails
+          });
+      });
+    });
+
+    // Wait for all preloading to finish
+    await Promise.all([...imagePromises, ...audioPromises]);
+
+    // Additional attempt to cache via service worker if available
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: "CACHE_SONGS",
+        songUrls: [
+          ...songsToPreload.map((song) => song.audioUrl),
+          ...songsToPreload.map((song) => song.coverUrl),
+        ],
+      });
     }
   };
 
@@ -297,6 +491,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     addToPlaylist,
     removeFromPlaylist,
     isInPlaylist,
+    isLoading,
+    setIsLoading,
+    preloadAssets,
+    activePlayer,
+    setActivePlayer,
   };
 
   return (

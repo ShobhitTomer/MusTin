@@ -17,7 +17,6 @@
   --font-size-lg: 16px;
   --font-size-xl: 18px;
   --font-size-xxl: 22px;
-  
   /* System fonts for better performance */
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
@@ -33,6 +32,8 @@ body, html {
   padding: 0;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
+  overscroll-behavior: none;
+  touch-action: manipulation;
   user-select: none;
   overscroll-behavior: none;
   background-color: var(--color-background);
