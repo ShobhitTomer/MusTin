@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { FaPlay, FaHeart, FaTimes, FaMusic } from "react-icons/fa";
@@ -41,28 +41,7 @@ const SwipeInstructions = styled.div`
   gap: 8px;
   z-index: 5;
   pointer-events: none;
-`;
-
-const SwipeArrows = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 40px;
-  margin-bottom: 8px;
-`;
-
-const SwipeArrow = styled.div<{ direction: "left" | "right" }>`
-  display: flex;
-  align-items: center;
-  color: ${(props) => (props.direction === "left" ? "#EF4444" : "#22C55E")};
-  font-weight: bold;
-
-  &::before {
-    content: "${(props) => (props.direction === "left" ? "←" : "→")}";
-    font-size: 20px;
-    margin: ${(props) =>
-      props.direction === "left" ? "0 8px 0 0" : "0 0 0 8px"};
-  }
+  display: none; /* Hide instructions to save space */
 `;
 
 const EmptyDeck = styled.div`
@@ -216,10 +195,8 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
 }) => {
   const { songsList, playSong } = useAudio();
 
-  // Filter out songs that are already in the playlist
-  const availableSongs = songsList.filter(
-    (song) => !playlistSongIds.includes(song.id)
-  );
+  // State to hold all songs not in playlist
+  const [availableSongs, setAvailableSongs] = useState<Song[]>([]);
 
   // State to track current set of cards (showing 3 at a time for stack effect)
   const [currentStack, setCurrentStack] = useState<Song[]>([]);
@@ -233,9 +210,19 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
   const swipeLeftOpacity = useTransform(x, [-100, -20, 0], [1, 0, 0]);
   const swipeRightOpacity = useTransform(x, [0, 20, 100], [0, 0, 1]);
 
-  // Initialize the stack
+  // Whenever playlist changes, update available songs
+  useEffect(() => {
+    // Filter out songs that are already in the playlist
+    const filteredSongs = songsList.filter(
+      (song) => !playlistSongIds.includes(song.id)
+    );
+    setAvailableSongs(filteredSongs);
+  }, [songsList, playlistSongIds]);
+
+  // Initialize the stack whenever available songs change
   useEffect(() => {
     if (availableSongs.length > 0) {
+      // Take first 3 songs (or fewer if less available) for initial stack
       setCurrentStack(
         availableSongs.slice(0, Math.min(3, availableSongs.length))
       );
@@ -244,6 +231,54 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     }
   }, [availableSongs]);
 
+  // Pass on a song (move to end of queue) implementation
+  const passSong = useCallback((songId: number) => {
+    setAvailableSongs((prev) => {
+      // Find the index of the song to move
+      const songIndex = prev.findIndex((song) => song.id === songId);
+      if (songIndex === -1) return prev; // Song not found
+
+      // Create a new array with the song moved to the end
+      const newAvailableSongs = [...prev];
+      const [songToMove] = newAvailableSongs.splice(songIndex, 1);
+      newAvailableSongs.push(songToMove);
+
+      return newAvailableSongs;
+    });
+  }, []);
+
+  // Move to next card - now uses passSong for left swipe
+  const handleNextCard = (isAddToPlaylist: boolean, currentSongId: number) => {
+    if (currentStack.length === 0) return;
+
+    // If not adding to playlist, move to end of available songs
+    if (!isAddToPlaylist) {
+      passSong(currentSongId);
+    }
+
+    // Update current stack by removing the top card
+    setCurrentStack((prev) => {
+      if (prev.length <= 1) return []; // No more cards
+
+      // Remove the top card and find next card not in stack
+      const nextStack = prev.slice(1);
+
+      // If we need to add another card to keep 3 in stack
+      if (nextStack.length < 3) {
+        // Find a song that's not already in the stack
+        const nextSong = availableSongs.find(
+          (song) => !nextStack.some((stackSong) => stackSong.id === song.id)
+        );
+
+        if (nextSong) {
+          return [...nextStack, nextSong];
+        }
+      }
+
+      return nextStack;
+    });
+  };
+
   // Handle swipe end
   const handleDragEnd = (info: PanInfo) => {
     if (!currentStack.length || isAnimating) return;
@@ -251,32 +286,38 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     const currentSong = currentStack[0];
     setIsAnimating(true);
 
-    if (info.offset.x > 100) {
-      // Swipe right - add to playlist
+    // Make swiping more responsive with faster velocity detection
+    const swipeThreshold = 80; // Reduced threshold for more responsiveness
+    const velocityThreshold = 0.5; // Detect flick gestures
+
+    if (info.offset.x > swipeThreshold || info.velocity.x > velocityThreshold) {
+      // Swipe right - add to playlist with quicker animation
       onAdd(currentSong.id);
-      handleNextCard();
-    } else if (info.offset.x < -100) {
-      // Swipe left - discard
-      handleNextCard();
-    }
+      handleNextCard(true, currentSong.id);
 
-    // Reset after animation
-    setTimeout(() => {
-      x.set(0);
-      setIsAnimating(false);
-    }, 300);
-  };
+      // Faster animation reset
+      setTimeout(() => {
+        x.set(0);
+        setIsAnimating(false);
+      }, 200); // Reduced from 300ms
+    } else if (
+      info.offset.x < -swipeThreshold ||
+      info.velocity.x < -velocityThreshold
+    ) {
+      // Swipe left - discard with quicker animation
+      handleNextCard(false, currentSong.id);
 
-  // Move to next card
-  const handleNextCard = () => {
-    if (availableSongs.length <= currentStack.length) {
-      // No more cards to show
-      setCurrentStack((prev) => prev.slice(1));
+      // Faster animation reset
+      setTimeout(() => {
+        x.set(0);
+        setIsAnimating(false);
+      }, 200); // Reduced from 300ms
     } else {
-      // Get next card from available songs
-      const nextIndex = currentStack.length;
-      const nextSong = availableSongs[nextIndex];
-      setCurrentStack((prev) => [...prev.slice(1), nextSong]);
+      // Return to center if not swiped far enough - quick spring
+      x.set(0);
+      setTimeout(() => {
+        setIsAnimating(false);
+      }, 150);
     }
   };
 
@@ -293,8 +334,8 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     if (!currentStack.length || isAnimating) return;
 
     setIsAnimating(true);
-    handleNextCard();
-    setTimeout(() => setIsAnimating(false), 300);
+    handleNextCard(false, currentStack[0].id);
+    setTimeout(() => setIsAnimating(false), 200);
   };
 
   const handleAddToPlaylist = (e: React.MouseEvent) => {
@@ -304,8 +345,8 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     const currentSong = currentStack[0];
     setIsAnimating(true);
     onAdd(currentSong.id);
-    handleNextCard();
-    setTimeout(() => setIsAnimating(false), 300);
+    handleNextCard(true, currentSong.id);
+    setTimeout(() => setIsAnimating(false), 200);
   };
 
   return (
@@ -334,14 +375,14 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
                   y: index * 10, // Stack effect - cards are slightly offset
                   ...(isDraggable ? { x, rotate } : {}),
                 }}
-                drag={isDraggable ? "x" : false}
+                drag={isDraggable && !isAnimating ? "x" : false}
                 dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.7}
+                dragElastic={0.9} /* More elastic for smoother feel */
                 onDragEnd={(_, info) => isDraggable && handleDragEnd(info)}
                 initial={index === 0 ? { scale: 0.8, opacity: 0 } : false}
                 animate={index === 0 ? { scale: 1, opacity: 1 } : {}}
                 exit={index === 0 ? { x: -300, opacity: 0 } : {}}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                transition={{ type: "spring", stiffness: 500, damping: 15 }}
               >
                 {isDraggable && (
                   <>
@@ -400,11 +441,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
       </CardStack>
 
       <SwipeInstructions>
-        <SwipeArrows>
-          <SwipeArrow direction="left">Pass</SwipeArrow>
-          <SwipeArrow direction="right">Add to playlist</SwipeArrow>
-        </SwipeArrows>
-        <div>Swipe or use buttons below</div>
+        <div>Swipe left to pass, right to add</div>
       </SwipeInstructions>
     </SwipeDeckContainer>
   );
