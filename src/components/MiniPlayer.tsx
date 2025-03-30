@@ -117,13 +117,12 @@ const PlayerHandle = styled.div`
   margin: 10px auto 5px;
 `;
 
-const CloseButton = styled(ControlButton)`
+const MinimizeButton = styled(ControlButton)`
   position: absolute;
   top: 10px;
   right: 10px;
   z-index: 10;
 
-  /* This is now a minimize button, not a close button */
   &:before {
     content: "Minimize";
     position: absolute;
@@ -207,7 +206,7 @@ interface MiniPlayerProps {
   onMinimize: () => void;
 }
 
-const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
+const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType }) => {
   const {
     currentSong,
     isPlaying,
@@ -218,6 +217,8 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
     playPrevious,
     seekTo,
     activePlayer,
+    setActivePlayer,
+    setSongChangeSource,
   } = useAudio();
 
   const [expanded, setExpanded] = useState(false);
@@ -235,11 +236,11 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
     setExpanded(!expanded);
   };
 
-  const handleCloseClick = () => {
-    // Only minimize the player, never close it
-    setExpanded(false);
-    onMinimize();
-  };
+  //   const handleMinimizeClick = () => {
+  //     // Make X button shrink the player - both X and chevron do the same thing now
+  //     setExpanded(false);
+  //     onMinimize();
+  //   };
 
   // Format time display (mm:ss)
   const formatTime = (seconds: number): string => {
@@ -267,7 +268,26 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
     seekTo(Math.max(0, Math.min(newTime, duration)));
   };
 
+  // Handle playNext with flag to indicate it came from the miniplayer
+  const handlePlayNext = () => {
+    // Set the source of song change to miniplayer so cards can sync
+    setSongChangeSource("miniplayer");
+    playNext();
+  };
+
+  // Handle playPrevious with flag to indicate it came from the miniplayer
+  const handlePlayPrevious = () => {
+    // Set the source of song change to miniplayer so cards can sync
+    setSongChangeSource("miniplayer");
+    playPrevious();
+  };
+
   const playerTypeLabel = playerType === "discover" ? "Discover" : "Playlist";
+
+  // Set the active player when user interacts with this miniplayer
+  const handlePlayerInteraction = () => {
+    setActivePlayer(playerType);
+  };
 
   return (
     <PlayerContainer
@@ -275,6 +295,7 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
       animate={{ y: 0 }}
       exit={{ y: 100 }}
       transition={{ type: "spring", damping: 20, stiffness: 300 }}
+      onClick={handlePlayerInteraction}
     >
       <AnimatePresence>
         {expanded && (
@@ -286,9 +307,9 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
           >
             <PlayerTypeIndicator>{playerTypeLabel}</PlayerTypeIndicator>
 
-            <CloseButton onClick={handleCloseClick}>
+            <MinimizeButton onClick={handleExpandClick}>
               <FaTimes size={16} />
-            </CloseButton>
+            </MinimizeButton>
 
             <ExpandedAlbumArt imageUrl={relevantSong.coverUrl} />
 
@@ -317,7 +338,10 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
             </div>
 
             <ControlsRow>
-              <ControlButton onClick={playPrevious} whileTap={{ scale: 0.9 }}>
+              <ControlButton
+                onClick={handlePlayPrevious}
+                whileTap={{ scale: 0.9 }}
+              >
                 <FaBackward size={24} />
               </ControlButton>
 
@@ -329,7 +353,7 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
                 {isPlaying ? <FaPause size={24} /> : <FaPlay size={24} />}
               </PlayPauseButton>
 
-              <ControlButton onClick={playNext} whileTap={{ scale: 0.9 }}>
+              <ControlButton onClick={handlePlayNext} whileTap={{ scale: 0.9 }}>
                 <FaForward size={24} />
               </ControlButton>
             </ControlsRow>
@@ -353,7 +377,7 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
           <MiniArtist>{relevantSong.artist}</MiniArtist>
         </MiniSongInfo>
 
-        <ControlButton onClick={playPrevious} whileTap={{ scale: 0.9 }}>
+        <ControlButton onClick={handlePlayPrevious} whileTap={{ scale: 0.9 }}>
           <FaBackward size={16} />
         </ControlButton>
 
@@ -361,7 +385,7 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
           {isPlaying ? <FaPause size={16} /> : <FaPlay size={16} />}
         </PlayPauseButton>
 
-        <ControlButton onClick={playNext} whileTap={{ scale: 0.9 }}>
+        <ControlButton onClick={handlePlayNext} whileTap={{ scale: 0.9 }}>
           <FaForward size={16} />
         </ControlButton>
 
