@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaList, FaChevronDown, FaChevronUp, FaHome } from "react-icons/fa";
+import { FaList, FaHome } from "react-icons/fa";
 import AlbumCover from "./AlbumCover";
 import SongInfo from "./SongInfo";
 import PlaybackControls from "./PlaybackControls";
@@ -229,7 +229,15 @@ const MobilePlayerWrapper: React.FC = () => {
                   <PlaylistTitle>Your Library</PlaylistTitle>
                 </PlaylistHeader>
                 <div style={{ flex: 1, overflow: "hidden" }}>
-                  <Playlist title="" />
+                  <Playlist
+                    playlistSongIds={[]}
+                    onRemove={function (): void {
+                      throw new Error("Function not implemented.");
+                    }}
+                    onPlay={function (): void {
+                      throw new Error("Function not implemented.");
+                    }}
+                  />
                 </div>
               </PlaylistScreen>
             )}

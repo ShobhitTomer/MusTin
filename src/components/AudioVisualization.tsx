@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useRef, useEffect, useState } from "react";
 import styled from "styled-components";
 import { useAudio } from "../context/AudioContext";

@@ -96,8 +96,8 @@ const VinylRecord = styled(motion.div)`
 
 const AlbumCover: React.FC = () => {
   const { currentSong, isPlaying } = useAudio();
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageFailed, setImageFailed] = useState(false);
+  const [, setImageLoaded] = useState(false);
+  const [, setImageFailed] = useState(false);
 
   useEffect(() => {
     setImageLoaded(false);
