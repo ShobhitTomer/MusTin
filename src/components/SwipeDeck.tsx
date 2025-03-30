@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled from "styled-components";
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { FaPlay, FaPause, FaHeart, FaTimes, FaMusic } from "react-icons/fa";
@@ -166,6 +166,31 @@ const SwipeIndicator = styled(motion.div)<{ direction: "left" | "right" }>`
   z-index: 20;
 `;
 
+// Simple component to isolate re-renders for the play button
+const PlayPauseButton = ({
+  song,
+  isPlaying,
+  currentSongId,
+  activePlayer,
+  onToggle,
+}: {
+  song: Song;
+  isPlaying: boolean;
+  currentSongId: number | undefined;
+  activePlayer: string;
+  onToggle: (e: React.MouseEvent) => void;
+}) => {
+  // Direct check if this song is the one playing
+  const isCurrentSongPlaying =
+    isPlaying && currentSongId === song.id && activePlayer === "discover";
+
+  return (
+    <PlayButton onClick={onToggle} whileTap={{ scale: 0.9 }}>
+      {isCurrentSongPlaying ? <FaPause size={20} /> : <FaPlay size={20} />}
+    </PlayButton>
+  );
+};
+
 interface SwipeDeckProps {
   playlistSongIds: number[];
   onAdd: (songId: number) => void;
@@ -195,6 +220,12 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
   const [currentStack, setCurrentStack] = useState<Song[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Force component re-render when playback state changes
+  const [, setRenderToggle] = useState(false);
+
+  // Animation reference for cleanup
+  const animationRef = useRef<Animation | null>(null);
+
   // For tracking swipe direction
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 0, 200], [-15, 0, 15]);
@@ -203,15 +234,19 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
   const swipeLeftOpacity = useTransform(x, [-100, -20, 0], [1, 0, 0]);
   const swipeRightOpacity = useTransform(x, [0, 20, 100], [0, 0, 1]);
 
-  // Function to check if a specific song is currently playing
-  const isSongPlaying = useCallback(
-    (songId: number) => {
-      return (
-        isPlaying && currentSong?.id === songId && activePlayer === "discover"
-      );
-    },
-    [isPlaying, currentSong, activePlayer]
-  );
+  // Force re-render when playback state changes
+  useEffect(() => {
+    setRenderToggle((prev) => !prev);
+  }, [isPlaying, currentSong, activePlayer]);
+
+  // Cleanup any running animations on unmount
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        animationRef.current.cancel();
+      }
+    };
+  }, []);
 
   // Whenever playlist changes, update available songs
   useEffect(() => {
@@ -266,11 +301,12 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
 
   // Listen for changes to current song from miniplayer
   useEffect(() => {
-    // Only respond to changes from miniplayer
+    // Only respond to changes from miniplayer and if not already animating
     if (
       songChangeSource === "miniplayer" &&
       currentSong &&
-      activePlayer === "discover"
+      activePlayer === "discover" &&
+      !isAnimating
     ) {
       // Find the song in available songs
       const songIndex = availableSongs.findIndex(
@@ -278,14 +314,20 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
       );
 
       if (songIndex !== -1) {
-        // Animate the current card away
+        // Only animate if the current top card is different
         if (currentStack.length > 0 && currentStack[0].id !== currentSong.id) {
           setIsAnimating(true);
 
           // Animate the current card swiping left (passing)
           const card = document.getElementById(`card-${currentStack[0].id}`);
           if (card) {
-            card.animate(
+            // Cancel any existing animation
+            if (animationRef.current) {
+              animationRef.current.cancel();
+            }
+
+            // Start new animation
+            animationRef.current = card.animate(
               [
                 { transform: "translateX(0) rotate(0deg)" },
                 { transform: "translateX(-400px) rotate(-5deg)" },
@@ -296,21 +338,40 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
                 fill: "forwards",
               }
             );
+
+            // Wait for animation to complete
+            animationRef.current.onfinish = () => {
+              // Create new stack with the current song at the top
+              const newStack = [
+                availableSongs[songIndex],
+                ...availableSongs
+                  .filter((song) => song.id !== availableSongs[songIndex].id)
+                  .slice(0, 2),
+              ].slice(0, 3);
+
+              setCurrentStack(newStack);
+              x.set(0); // Reset position
+              setIsAnimating(false);
+              animationRef.current = null;
+            };
+
+            // Backup in case animation finish event doesn't fire
+            setTimeout(() => {
+              if (isAnimating) {
+                // Create new stack with the current song at the top
+                const newStack = [
+                  availableSongs[songIndex],
+                  ...availableSongs
+                    .filter((song) => song.id !== availableSongs[songIndex].id)
+                    .slice(0, 2),
+                ].slice(0, 3);
+
+                setCurrentStack(newStack);
+                x.set(0); // Reset position
+                setIsAnimating(false);
+              }
+            }, 450);
           }
-
-          // Wait for animation to complete
-          setTimeout(() => {
-            // Create new stack with the current song at the top
-            const newStack = [
-              availableSongs[songIndex],
-              ...availableSongs
-                .filter((song) => song.id !== availableSongs[songIndex].id)
-                .slice(0, 2),
-            ].slice(0, 3);
-
-            setCurrentStack(newStack);
-            setIsAnimating(false);
-          }, 400);
         }
       }
     }
@@ -320,6 +381,8 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     availableSongs,
     currentStack,
     activePlayer,
+    isAnimating,
+    x,
   ]);
 
   // Pass on a song (move to end of queue) implementation
@@ -378,8 +441,8 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     setIsAnimating(true);
 
     // Make swiping more responsive with faster velocity detection
-    const swipeThreshold = 80; // Reduced threshold for more responsiveness
-    const velocityThreshold = 0.5; // Detect flick gestures
+    const swipeThreshold = 80;
+    const velocityThreshold = 0.5;
 
     if (info.offset.x > swipeThreshold || info.velocity.x > velocityThreshold) {
       // Swipe right - add to playlist with quicker animation
@@ -396,19 +459,53 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
         playNext();
       }
 
-      handleNextCard(true, currentCardSong.id);
+      // Animate card swipe right
+      const card = document.getElementById(`card-${currentCardSong.id}`);
+      if (card) {
+        // Cancel any existing animation
+        if (animationRef.current) {
+          animationRef.current.cancel();
+        }
 
-      // Faster animation reset
-      setTimeout(() => {
-        x.set(0);
-        setIsAnimating(false);
-      }, 200);
+        // Start new animation
+        animationRef.current = card.animate(
+          [
+            {
+              transform: `translateX(${info.offset.x}px) rotate(${
+                info.offset.x * 0.1
+              }deg)`,
+            },
+            { transform: "translateX(400px) rotate(40deg)" },
+          ],
+          {
+            duration: 300,
+            easing: "ease-out",
+            fill: "forwards",
+          }
+        );
+
+        // When animation completes
+        animationRef.current.onfinish = () => {
+          handleNextCard(true, currentCardSong.id);
+          x.set(0); // Reset position
+          setIsAnimating(false);
+          animationRef.current = null;
+        };
+
+        // Backup in case animation finish event doesn't fire
+        setTimeout(() => {
+          if (isAnimating) {
+            handleNextCard(true, currentCardSong.id);
+            x.set(0); // Reset position
+            setIsAnimating(false);
+          }
+        }, 350);
+      }
     } else if (
       info.offset.x < -swipeThreshold ||
       info.velocity.x < -velocityThreshold
     ) {
       // Swipe left - discard with quicker animation
-
       // Update miniplayer - set source to card so miniplayer knows where the change came from
       setSongChangeSource("card");
 
@@ -420,24 +517,57 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
         playNext();
       }
 
-      handleNextCard(false, currentCardSong.id);
+      // Animate card swipe left
+      const card = document.getElementById(`card-${currentCardSong.id}`);
+      if (card) {
+        // Cancel any existing animation
+        if (animationRef.current) {
+          animationRef.current.cancel();
+        }
 
-      // Faster animation reset
-      setTimeout(() => {
-        x.set(0);
-        setIsAnimating(false);
-      }, 200);
+        // Start new animation
+        animationRef.current = card.animate(
+          [
+            {
+              transform: `translateX(${info.offset.x}px) rotate(${
+                info.offset.x * 0.1
+              }deg)`,
+            },
+            { transform: "translateX(-400px) rotate(-40deg)" },
+          ],
+          {
+            duration: 300,
+            easing: "ease-out",
+            fill: "forwards",
+          }
+        );
+
+        // When animation completes
+        animationRef.current.onfinish = () => {
+          handleNextCard(false, currentCardSong.id);
+          x.set(0); // Reset position
+          setIsAnimating(false);
+          animationRef.current = null;
+        };
+
+        // Backup in case animation finish event doesn't fire
+        setTimeout(() => {
+          if (isAnimating) {
+            handleNextCard(false, currentCardSong.id);
+            x.set(0); // Reset position
+            setIsAnimating(false);
+          }
+        }, 350);
+      }
     } else {
       // Return to center if not swiped far enough - quick spring
       x.set(0);
-      setTimeout(() => {
-        setIsAnimating(false);
-      }, 150);
+      setIsAnimating(false);
     }
   };
 
-  // Handle play/pause button click
-  const handlePlayPauseToggle = (song: Song, e: React.MouseEvent) => {
+  // Handle play/pause button click for a specific song
+  const handlePlayPauseToggle = (song: Song) => (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card swipe when clicking play
 
     // Make sure discover player is active when interacting with card
@@ -462,10 +592,24 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     const currentCardSong = currentStack[0];
     setIsAnimating(true);
 
-    // Use Framer Motion's built-in animation
+    // Set source to card so miniplayer knows where the change came from
+    setSongChangeSource("card");
+
+    // If this card is the active song in miniplayer, play the next song
+    if (activePlayer === "discover" && currentSong?.id === currentCardSong.id) {
+      playNext();
+    }
+
+    // Animate card swipe left
     const card = document.getElementById(`card-${currentCardSong.id}`);
     if (card) {
-      card.animate(
+      // Cancel any existing animation
+      if (animationRef.current) {
+        animationRef.current.cancel();
+      }
+
+      // Start new animation
+      animationRef.current = card.animate(
         [
           { transform: "translateX(0) rotate(0deg)" },
           { transform: "translateX(-400px) rotate(-5deg)" },
@@ -476,21 +620,24 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
           fill: "forwards",
         }
       );
+
+      // When animation completes
+      animationRef.current.onfinish = () => {
+        handleNextCard(false, currentCardSong.id);
+        x.set(0); // Reset position
+        setIsAnimating(false);
+        animationRef.current = null;
+      };
+
+      // Backup in case animation finish event doesn't fire
+      setTimeout(() => {
+        if (isAnimating) {
+          handleNextCard(false, currentCardSong.id);
+          x.set(0); // Reset position
+          setIsAnimating(false);
+        }
+      }, 450);
     }
-
-    // Set source to card so miniplayer knows where the change came from
-    setSongChangeSource("card");
-
-    // If this card is the active song in miniplayer, play the next song
-    if (activePlayer === "discover" && currentSong?.id === currentCardSong.id) {
-      playNext();
-    }
-
-    // Wait for animation to complete
-    setTimeout(() => {
-      handleNextCard(false, currentCardSong.id);
-      setIsAnimating(false);
-    }, 400);
   };
 
   // Handle add to playlist button click
@@ -501,10 +648,26 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     const currentCardSong = currentStack[0];
     setIsAnimating(true);
 
-    // Use Framer Motion's built-in animation
+    // Set source to card so miniplayer knows where the change came from
+    setSongChangeSource("card");
+
+    // If this card is the active song in miniplayer, play the next song
+    if (activePlayer === "discover" && currentSong?.id === currentCardSong.id) {
+      playNext();
+    }
+
+    onAdd(currentCardSong.id);
+
+    // Animate card swipe right
     const card = document.getElementById(`card-${currentCardSong.id}`);
     if (card) {
-      card.animate(
+      // Cancel any existing animation
+      if (animationRef.current) {
+        animationRef.current.cancel();
+      }
+
+      // Start new animation
+      animationRef.current = card.animate(
         [
           { transform: "translateX(0) rotate(0deg)" },
           { transform: "translateX(400px) rotate(5deg)" },
@@ -515,22 +678,24 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
           fill: "forwards",
         }
       );
+
+      // When animation completes
+      animationRef.current.onfinish = () => {
+        handleNextCard(true, currentCardSong.id);
+        x.set(0); // Reset position
+        setIsAnimating(false);
+        animationRef.current = null;
+      };
+
+      // Backup in case animation finish event doesn't fire
+      setTimeout(() => {
+        if (isAnimating) {
+          handleNextCard(true, currentCardSong.id);
+          x.set(0); // Reset position
+          setIsAnimating(false);
+        }
+      }, 450);
     }
-
-    // Set source to card so miniplayer knows where the change came from
-    setSongChangeSource("card");
-
-    // If this card is the active song in miniplayer, play the next song
-    if (activePlayer === "discover" && currentSong?.id === currentCardSong.id) {
-      playNext();
-    }
-
-    // Wait for animation to complete
-    setTimeout(() => {
-      onAdd(currentCardSong.id);
-      handleNextCard(true, currentCardSong.id);
-      setIsAnimating(false);
-    }, 400);
   };
 
   return (
@@ -549,7 +714,6 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
           currentStack.map((song, index) => {
             // Only make the top card draggable
             const isDraggable = index === 0;
-            const isCurrentlyPlaying = isSongPlaying(song.id);
 
             return (
               <Card
@@ -604,16 +768,13 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
                       <FaTimes size={24} />
                     </ActionButton>
 
-                    <PlayButton
-                      onClick={(e) => handlePlayPauseToggle(song, e)}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      {isCurrentlyPlaying ? (
-                        <FaPause size={20} />
-                      ) : (
-                        <FaPlay size={20} />
-                      )}
-                    </PlayButton>
+                    <PlayPauseButton
+                      song={song}
+                      isPlaying={isPlaying}
+                      currentSongId={currentSong?.id}
+                      activePlayer={activePlayer}
+                      onToggle={handlePlayPauseToggle(song)}
+                    />
 
                     <ActionButton
                       onClick={handleAddToPlaylist}
