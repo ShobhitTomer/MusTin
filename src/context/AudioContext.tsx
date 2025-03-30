@@ -48,6 +48,8 @@ interface AudioContextProps {
   addToPlaylist: (songId: number) => void;
   removeFromPlaylist: (songId: number) => void;
   isInPlaylist: (songId: number) => boolean;
+  songChangeSource: "card" | "miniplayer" | null;
+  setSongChangeSource: (source: "card" | "miniplayer" | null) => void;
 
   // Loading state
   isLoading: boolean;
@@ -76,6 +78,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
   const [playlistSongs, setPlaylistSongs] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activePlayer, setActivePlayer] = useState<AudioPlayerType>("discover");
+  const [songChangeSource, setSongChangeSource] = useState<
+    "card" | "miniplayer" | null
+  >(null);
 
   // Audio element references for different players
   const audioRefs = useRef<Record<AudioPlayerType, HTMLAudioElement | null>>({
@@ -320,6 +325,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     if (nextSong) {
       playSong(nextSong);
     }
+
+    // Clear the source after the song changes
+    setTimeout(() => {
+      setSongChangeSource(null);
+    }, 100);
   };
 
   const playPrevious = () => {
@@ -339,6 +349,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     if (prevSong) {
       playSong(prevSong);
     }
+    setTimeout(() => {
+      setSongChangeSource(null);
+    }, 100);
   };
 
   const toggleRepeat = () => {
@@ -535,6 +548,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     activePlayer,
     setActivePlayer,
     getActiveAudio,
+    songChangeSource,
+    setSongChangeSource,
   };
 
   return (
