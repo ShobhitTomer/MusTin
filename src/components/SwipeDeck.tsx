@@ -37,6 +37,44 @@ const CardStack = styled.div`
   touch-action: manipulation;
 `;
 
+const SwipeInstructions = styled.div`
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 5;
+  pointer-events: none;
+`;
+
+const SwipeArrows = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  margin-bottom: 8px;
+`;
+
+const SwipeArrow = styled.div<{ direction: "left" | "right" }>`
+  display: flex;
+  align-items: center;
+  color: ${(props) => (props.direction === "left" ? "#EF4444" : "#22C55E")};
+  font-weight: bold;
+
+  &::before {
+    content: "${(props) => (props.direction === "left" ? "←" : "→")}";
+    font-size: 20px;
+    margin: ${(props) =>
+      props.direction === "left" ? "0 8px 0 0" : "0 0 0 8px"};
+  }
+`;
+
 const EmptyDeck = styled.div`
   display: flex;
   flex-direction: column;
@@ -175,6 +213,57 @@ const SwipeIndicator = styled(motion.div)<{ direction: "left" | "right" }>`
   z-index: 20;
 `;
 
+// Swipe tutorial overlay
+const SwipeTutorial = styled(motion.div)`
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  color: white;
+  text-align: center;
+  padding: 20px;
+  border-radius: 16px;
+`;
+
+const TutorialTitle = styled.h3`
+  font-size: 22px;
+  margin-bottom: 16px;
+  color: white;
+`;
+
+const TutorialInstruction = styled.div`
+  display: flex;
+  align-items: center;
+  margin: 8px 0;
+  gap: 12px;
+`;
+
+const SwipeDemo = styled(motion.div)<{ direction: "left" | "right" }>`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+  color: ${(props) => (props.direction === "left" ? "#EF4444" : "#22C55E")};
+  font-weight: bold;
+`;
+
+const GotItButton = styled(motion.button)`
+  background-color: ${({ theme }) => theme.colors.primary};
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  margin-top: 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+`;
+
 interface SwipeDeckProps {
   playlistSongIds: number[];
   onAdd: (songId: number) => void;
@@ -188,6 +277,20 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
 }) => {
   const { songsList, playSong } = useAudio();
   const cardStackRef = useRef<HTMLDivElement>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  // Check if this is the first time using the app
+  useEffect(() => {
+    const hasSeenTutorial = localStorage.getItem("mustin_tutorial_seen");
+    if (!hasSeenTutorial) {
+      setShowTutorial(true);
+    }
+  }, []);
+
+  const handleCloseTutorial = () => {
+    setShowTutorial(false);
+    localStorage.setItem("mustin_tutorial_seen", "true");
+  };
 
   // Filter out songs that are already in the playlist
   const availableSongs = songsList.filter(
@@ -198,6 +301,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
   const [currentStack, setCurrentStack] = useState<Song[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
   const [dragEnabled, setDragEnabled] = useState(true);
+  const [swipeGestureActive, setSwipeGestureActive] = useState(false);
 
   // Control animation externally
   const controls = useAnimation();
@@ -221,14 +325,36 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
   const swipeLeftOpacity = useTransform(x, [-100, -20, 0], [1, 0, 0]);
   const swipeRightOpacity = useTransform(x, [0, 20, 100], [0, 0, 1]);
 
+  // Pulse animation for swipe tutorial
+  const tutorialPulse = {
+    scale: [1, 1.05, 1],
+    transition: {
+      duration: 1.5,
+      repeat: Infinity,
+      repeatType: "reverse" as const,
+    },
+  };
+
   // Handle swipe/drag start
   const handleDragStart = () => {
     if (!dragEnabled || isAnimating) return false;
+    setSwipeGestureActive(true);
     return true;
+  };
+
+  // Handle drag movements
+  const handleDrag = (info: PanInfo) => {
+    if (info.offset.x > 50) {
+      // Swiping right - add to playlist gesture
+    } else if (info.offset.x < -50) {
+      // Swiping left - discard gesture
+    }
   };
 
   // Handle end of drag
   const handleDragEnd = (info: PanInfo) => {
+    setSwipeGestureActive(false);
+
     if (!currentStack.length || isAnimating) return;
 
     const currentSong = currentStack[0];
@@ -347,6 +473,51 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
 
   return (
     <SwipeDeckContainer>
+      {/* Tutorial overlay that appears on first run */}
+      <AnimatePresence>
+        {showTutorial && (
+          <SwipeTutorial
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <TutorialTitle>How to Use MusTin</TutorialTitle>
+
+            <SwipeDemo direction="left" animate={tutorialPulse}>
+              <motion.div
+                animate={{ x: [-10, -30, -10] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                ←
+              </motion.div>
+              <span>Swipe left to pass</span>
+            </SwipeDemo>
+
+            <SwipeDemo direction="right" animate={tutorialPulse}>
+              <motion.div
+                animate={{ x: [10, 30, 10] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: 0.5 }}
+              >
+                →
+              </motion.div>
+              <span>Swipe right to add to playlist</span>
+            </SwipeDemo>
+
+            <TutorialInstruction>
+              Tap play button to listen immediately
+            </TutorialInstruction>
+
+            <GotItButton
+              onClick={handleCloseTutorial}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Got it!
+            </GotItButton>
+          </SwipeTutorial>
+        )}
+      </AnimatePresence>
+
       <CardStack ref={cardStackRef}>
         <AnimatePresence>
           {currentStack.length === 0 ? (
@@ -377,6 +548,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
                   dragElastic={0.7} // Make dragging more responsive
                   dragTransition={{ bounceStiffness: 300, bounceDamping: 30 }}
                   onDragStart={handleDragStart}
+                  onDrag={(_, info) => handleDrag(info)}
                   onDragEnd={(_, info) => isDraggable && handleDragEnd(info)}
                   initial={index === 0 ? { x: 300, opacity: 0 } : false}
                   animate={index === 0 ? controls : {}}
@@ -439,6 +611,17 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
           )}
         </AnimatePresence>
       </CardStack>
+
+      {/* Always visible swipe instructions at the bottom */}
+      {!swipeGestureActive && currentStack.length > 0 && !showTutorial && (
+        <SwipeInstructions>
+          <SwipeArrows>
+            <SwipeArrow direction="left">Pass</SwipeArrow>
+            <SwipeArrow direction="right">Add to playlist</SwipeArrow>
+          </SwipeArrows>
+          <div>Swipe or use buttons below</div>
+        </SwipeInstructions>
+      )}
     </SwipeDeckContainer>
   );
 };

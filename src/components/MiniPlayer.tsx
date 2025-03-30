@@ -180,11 +180,25 @@ const TimeInfo = styled.div`
   margin-top: 8px;
 `;
 
+const PlayerTypeIndicator = styled.div`
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  font-size: 12px;
+  background-color: ${({ theme }) => theme.colors.primary};
+  color: white;
+  padding: 3px 8px;
+  border-radius: 10px;
+  opacity: 0.8;
+`;
+
 interface MiniPlayerProps {
+  playerType: "discover" | "playlist";
   onClose: () => void;
+  onMinimize: () => void;
 }
 
-const MiniPlayer: React.FC<MiniPlayerProps> = ({ onClose }) => {
+const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
   const {
     currentSong,
     isPlaying,
@@ -194,17 +208,28 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ onClose }) => {
     playNext,
     playPrevious,
     seekTo,
+    activePlayer,
   } = useAudio();
 
   const [expanded, setExpanded] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
 
-  if (!currentSong) return null;
+  // Check if this player is the active one
+  const isActivePlayer = activePlayer === playerType;
+  const relevantSong = currentSong && isActivePlayer ? currentSong : null;
+
+  if (!relevantSong) return null;
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   const handleExpandClick = () => {
     setExpanded(!expanded);
+  };
+
+  const handleCloseClick = () => {
+    // Minimize the player instead of closing it
+    setExpanded(false);
+    onMinimize();
   };
 
   // Format time display (mm:ss)
@@ -233,6 +258,8 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ onClose }) => {
     seekTo(Math.max(0, Math.min(newTime, duration)));
   };
 
+  const playerTypeLabel = playerType === "discover" ? "Discover" : "Playlist";
+
   return (
     <PlayerContainer
       initial={{ y: 80 }}
@@ -248,15 +275,17 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ onClose }) => {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <CloseButton onClick={onClose}>
+            <PlayerTypeIndicator>{playerTypeLabel}</PlayerTypeIndicator>
+
+            <CloseButton onClick={handleCloseClick}>
               <FaTimes size={16} />
             </CloseButton>
 
-            <ExpandedAlbumArt imageUrl={currentSong.coverUrl} />
+            <ExpandedAlbumArt imageUrl={relevantSong.coverUrl} />
 
             <ExpandedInfo>
-              <ExpandedTitle>{currentSong.title}</ExpandedTitle>
-              <ExpandedArtist>{currentSong.artist}</ExpandedArtist>
+              <ExpandedTitle>{relevantSong.title}</ExpandedTitle>
+              <ExpandedArtist>{relevantSong.artist}</ExpandedArtist>
             </ExpandedInfo>
 
             <div
@@ -308,11 +337,11 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ onClose }) => {
       </ProgressBar>
 
       <MiniPlayerBar>
-        <MiniAlbumArt imageUrl={currentSong.coverUrl} />
+        <MiniAlbumArt imageUrl={relevantSong.coverUrl} />
 
         <MiniSongInfo>
-          <MiniTitle>{currentSong.title}</MiniTitle>
-          <MiniArtist>{currentSong.artist}</MiniArtist>
+          <MiniTitle>{relevantSong.title}</MiniTitle>
+          <MiniArtist>{relevantSong.artist}</MiniArtist>
         </MiniSongInfo>
 
         <ControlButton onClick={playPrevious} whileTap={{ scale: 0.9 }}>

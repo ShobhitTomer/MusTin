@@ -110,7 +110,14 @@ const MusTinAppWrapper: React.FC = () => {
   const [activeScreen, setActiveScreen] = useState<AppScreen>(
     AppScreen.DISCOVER
   );
-  const [miniPlayerVisible, setMiniPlayerVisible] = useState(false);
+  const [discoverMiniPlayerVisible, setDiscoverMiniPlayerVisible] =
+    useState(false);
+  const [playlistMiniPlayerVisible, setPlaylistMiniPlayerVisible] =
+    useState(false);
+  const [discoverMiniPlayerMinimized, setDiscoverMiniPlayerMinimized] =
+    useState(false);
+  const [playlistMiniPlayerMinimized, setPlaylistMiniPlayerMinimized] =
+    useState(false);
   const [appReady, setAppReady] = useState(false);
 
   // Use the audio context to manage playlist and playback
@@ -124,6 +131,7 @@ const MusTinAppWrapper: React.FC = () => {
     getSongById,
     setIsLoading,
     setActivePlayer,
+    activePlayer,
   } = useAudio();
 
   // Initialize app on mount
@@ -147,7 +155,29 @@ const MusTinAppWrapper: React.FC = () => {
 
     // Load songs data
     loadSongs();
+
+    // Reset playlist on app load
+    // This could be removed if you want to persist playlist between sessions
+    localStorage.removeItem("mustin_playlist");
   }, [loadSongs]);
+
+  // Load playlist from local storage on initial load
+  useEffect(() => {
+    const savedPlaylist = localStorage.getItem("mustin_playlist");
+    if (savedPlaylist) {
+      // If you want to implement loading the playlist from localStorage
+      // You can parse and set it here
+    }
+  }, []);
+
+  // Save playlist to local storage when it changes
+  useEffect(() => {
+    if (playlistSongs.length > 0) {
+      localStorage.setItem("mustin_playlist", JSON.stringify(playlistSongs));
+    } else {
+      localStorage.removeItem("mustin_playlist");
+    }
+  }, [playlistSongs]);
 
   // Handle asset preloading completion
   const handlePreloadComplete = () => {
@@ -155,12 +185,18 @@ const MusTinAppWrapper: React.FC = () => {
     setIsLoading(false);
   };
 
-  // Show mini player when a song is selected
+  // Show appropriate mini player when a song is selected
   useEffect(() => {
     if (currentSong) {
-      setMiniPlayerVisible(true);
+      if (activePlayer === "discover") {
+        setDiscoverMiniPlayerVisible(true);
+        setDiscoverMiniPlayerMinimized(false);
+      } else if (activePlayer === "playlist") {
+        setPlaylistMiniPlayerVisible(true);
+        setPlaylistMiniPlayerMinimized(false);
+      }
     }
-  }, [currentSong]);
+  }, [currentSong, activePlayer]);
 
   // Handle playing a song from discover screen
   const handlePlayFromDiscover = (songId: number) => {
@@ -256,22 +292,50 @@ const MusTinAppWrapper: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {miniPlayerVisible && currentSong && (
-          <MiniPlayer onClose={() => setMiniPlayerVisible(false)} />
-        )}
+        {/* Discover MiniPlayer */}
+        <AnimatePresence>
+          {discoverMiniPlayerVisible && !discoverMiniPlayerMinimized && (
+            <MiniPlayer
+              playerType="discover"
+              onClose={() => setDiscoverMiniPlayerMinimized(true)}
+              onMinimize={() => setDiscoverMiniPlayerMinimized(true)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Playlist MiniPlayer */}
+        <AnimatePresence>
+          {playlistMiniPlayerVisible && !playlistMiniPlayerMinimized && (
+            <MiniPlayer
+              playerType="playlist"
+              onClose={() => setPlaylistMiniPlayerMinimized(true)}
+              onMinimize={() => setPlaylistMiniPlayerMinimized(true)}
+            />
+          )}
+        </AnimatePresence>
       </ContentContainer>
 
       <NavBar>
         <NavButton
           active={activeScreen === AppScreen.DISCOVER}
-          onClick={() => setActiveScreen(AppScreen.DISCOVER)}
+          onClick={() => {
+            setActiveScreen(AppScreen.DISCOVER);
+            if (discoverMiniPlayerVisible && discoverMiniPlayerMinimized) {
+              setDiscoverMiniPlayerMinimized(false);
+            }
+          }}
         >
           <FaFire size={22} />
           <span>Discover</span>
         </NavButton>
         <NavButton
           active={activeScreen === AppScreen.PLAYLIST}
-          onClick={() => setActiveScreen(AppScreen.PLAYLIST)}
+          onClick={() => {
+            setActiveScreen(AppScreen.PLAYLIST);
+            if (playlistMiniPlayerVisible && playlistMiniPlayerMinimized) {
+              setPlaylistMiniPlayerMinimized(false);
+            }
+          }}
         >
           <FaList size={22} />
           <span>Playlist</span>

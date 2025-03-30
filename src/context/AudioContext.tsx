@@ -28,6 +28,7 @@ interface AudioContextProps {
   // Player type functionality
   activePlayer: AudioPlayerType;
   setActivePlayer: (player: AudioPlayerType) => void;
+  getActiveAudio: () => HTMLAudioElement | null;
 
   // Basic playback controls
   play: () => void;
@@ -74,7 +75,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [playlistSongs, setPlaylistSongs] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activePlayer, setActivePlayer] = useState<AudioPlayerType>("main");
+  const [activePlayer, setActivePlayer] = useState<AudioPlayerType>("discover");
 
   // Audio element references for different players
   const audioRefs = useRef<Record<AudioPlayerType, HTMLAudioElement | null>>({
@@ -92,6 +93,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     discover: false,
     playlist: false,
   });
+
+  // Get the current active audio element
+  const getActiveAudio = useCallback(() => {
+    return audioRefs.current[activePlayer];
+  }, [activePlayer]);
 
   // Initialize audio elements
   useEffect(() => {
@@ -265,7 +271,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Basic playback controls
-  const play = () => {
+  const play = useCallback(() => {
     if (!currentSong) return;
 
     // When playing, pause all other players
@@ -276,16 +282,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     });
 
-    audioRefs.current[activePlayer]
+    getActiveAudio()
       ?.play()
       .catch((err) => console.error(`Failed to play (${activePlayer}):`, err));
     setIsPlaying(true);
-  };
+  }, [activePlayer, currentSong, getActiveAudio]);
 
-  const pause = () => {
-    audioRefs.current[activePlayer]?.pause();
+  const pause = useCallback(() => {
+    getActiveAudio()?.pause();
     setIsPlaying(false);
-  };
+  }, [getActiveAudio]);
 
   const togglePlay = () => {
     if (isPlaying) {
@@ -309,12 +315,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     setVolume(clampedVolume);
   };
 
-  const seekTo = (time: number) => {
-    if (audioRefs.current[activePlayer]) {
-      audioRefs.current[activePlayer]!.currentTime = time;
+  const seekTo = useCallback((time: number) => {
+    const audio = getActiveAudio();
+    if (audio) {
+      audio.currentTime = time;
       setCurrentTime(time);
     }
-  };
+  }, [getActiveAudio]);
 
   const playNext = () => {
     if (songsList.length === 0) return;
@@ -359,12 +366,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Play a specific song using the appropriate player
-  const playSong = (song: Song, playerType?: AudioPlayerType) => {
+  const playSong = useCallback((song: Song, playerType?: AudioPlayerType) => {
     const targetPlayer = playerType || activePlayer;
 
     // If we're switching player types, pause the current one
     if (targetPlayer !== activePlayer) {
-      audioRefs.current[activePlayer]?.pause();
+      // Pause the audio element for the current player
+      if (audioRefs.current[activePlayer]) {
+        audioRefs.current[activePlayer]?.pause();
+      }
       setActivePlayer(targetPlayer);
     }
 
@@ -397,7 +407,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setIsPlaying(true);
     }
-  };
+  }, [activePlayer, playbackOrder, songsList, volume]);
 
   // Preload specific song assets (audio and cover art)
   const preloadAssets = async (songIds: number[]): Promise<void> => {
@@ -496,6 +506,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     preloadAssets,
     activePlayer,
     setActivePlayer,
+    getActiveAudio,
   };
 
   return (
