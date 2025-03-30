@@ -1,9 +1,16 @@
 import React, { useState } from "react";
 import styled from "styled-components";
-import { motion, PanInfo, AnimatePresence, useAnimation } from "framer-motion";
+import { motion, PanInfo, AnimatePresence } from "framer-motion";
 import { FaMusic, FaPlay, FaTrash } from "react-icons/fa";
 import { useAudio } from "../context/AudioContext";
 import { Song } from "../types/types";
+
+const PlayListInstruction = styled.p`
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 20px;
+  font-size: 14px;
+`;
 
 const PlaylistContainer = styled.div`
   flex: 1;
@@ -13,7 +20,6 @@ const PlaylistContainer = styled.div`
   padding: 20px;
   overflow: hidden;
   touch-action: manipulation;
-  overscroll-behavior: none;
 `;
 
 const PlaylistHeader = styled.div`
@@ -69,10 +75,10 @@ const PlaylistItems = styled.div`
   -webkit-overflow-scrolling: touch;
 
   /* Hide scrollbar but keep functionality */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   &::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, and Opera */
+    display: none;
   }
 `;
 
@@ -159,13 +165,6 @@ const DeleteOverlay = styled(motion.div)`
   z-index: 1;
 `;
 
-const PlayListInstruction = styled.p`
-  text-align: center;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 20px;
-  font-size: 14px;
-`;
-
 interface PlaylistProps {
   playlistSongIds: number[];
   onRemove: (songId: number) => void;
@@ -178,16 +177,10 @@ const Playlist: React.FC<PlaylistProps> = ({
   onPlay,
 }) => {
   const { playSong, getSongById } = useAudio();
-  const [swipingItemId, setSwipingItemId] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // Track which item is showing the delete overlay
+  const [, setSwipingItemId] = useState<number | null>(null);
   const [showDeleteOverlay, setShowDeleteOverlay] = useState<number | null>(
     null
   );
-
-  // Animation controls for each item
-  const controls = useAnimation();
 
   // Get the full song details for songs in the playlist
   const playlistSongs = playlistSongIds
@@ -199,13 +192,6 @@ const Playlist: React.FC<PlaylistProps> = ({
     e.stopPropagation(); // Prevent triggering swipe when clicking play
     playSong(song);
     onPlay(song.id);
-  };
-
-  // Handle drag start for swipe-to-delete
-  const handleDragStart = (songId: number) => {
-    if (isDeleting) return false;
-    setSwipingItemId(songId);
-    return true;
   };
 
   // Handle drag movements for visual cues
@@ -221,32 +207,13 @@ const Playlist: React.FC<PlaylistProps> = ({
   const handleDragEnd = (songId: number, info: PanInfo) => {
     if (info.offset.x < -100) {
       // Swipe left far enough to delete
-      setIsDeleting(true);
-
-      // Animate item out before removing
-      controls
-        .start({
-          x: -300,
-          opacity: 0,
-          transition: { duration: 0.2 },
-        })
-        .then(() => {
-          onRemove(songId);
-          setSwipingItemId(null);
-          setShowDeleteOverlay(null);
-          setIsDeleting(false);
-        });
+      onRemove(songId);
+      setSwipingItemId(null);
+      setShowDeleteOverlay(null);
     } else {
       // Reset to original position
-      controls
-        .start({
-          x: 0,
-          transition: { type: "spring", stiffness: 500, damping: 30 },
-        })
-        .then(() => {
-          setSwipingItemId(null);
-          setShowDeleteOverlay(null);
-        });
+      setSwipingItemId(null);
+      setShowDeleteOverlay(null);
     }
   };
 
@@ -273,12 +240,11 @@ const Playlist: React.FC<PlaylistProps> = ({
                   dragDirectionLock
                   dragConstraints={{ left: 0, right: 0 }}
                   dragElastic={{ left: 0.5, right: 0 }} // Only elastic when swiping left
-                  onDragStart={() => handleDragStart(song.id)}
+                  onDragStart={() => setSwipingItemId(song.id)}
                   onDrag={(_, info) => handleDrag(info, song.id)}
                   onDragEnd={(_, info) => handleDragEnd(song.id, info)}
-                  animate={swipingItemId === song.id ? controls : undefined}
                   initial={{ opacity: 0, x: 100 }}
-                  //animate={{ opacity: 1, x: 0 }}
+                  animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                   transition={{ duration: 0.2 }}
                   layout

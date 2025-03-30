@@ -105,7 +105,20 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
 
     playerTypes.forEach((type) => {
       if (!audioRefs.current[type]) {
-        audioRefs.current[type] = new Audio();
+        const audio = new Audio();
+        audio.preload = "auto";
+
+        // Prevent autoplay blocking
+        audio.muted = true;
+        audio
+          .play()
+          .catch(() => {})
+          .finally(() => {
+            audio.pause();
+            audio.muted = false;
+          });
+
+        audioRefs.current[type] = audio;
         setupEventListeners(type);
       }
     });
@@ -188,35 +201,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsPlaying(false);
     }
   };
-
-  // Load songs from JSON data
-  const loadSongs = useCallback(async (): Promise<void> => {
-    if (songsLoadedRef.current) return; // Skip if already loaded
-
-    try {
-      // In a real application, you might fetch this from an API
-      const songs = songsData.songs as Song[];
-      setSongsList(songs);
-      if (songs.length > 0 && !currentSong) {
-        setCurrentSong(songs[0]);
-      }
-
-      // Mark as loaded to prevent future calls
-      songsLoadedRef.current = true;
-
-      // Update playback order after loading songs
-      updatePlaybackOrder(songs, isShuffling);
-
-      // Preload the first few songs
-      if (songs.length > 0) {
-        await preloadAssets(
-          songs.slice(0, Math.min(3, songs.length)).map((song) => song.id)
-        );
-      }
-    } catch (error) {
-      console.error("Failed to load songs:", error);
-    }
-  }, [currentSong, isShuffling]);
 
   // Update playback order
   const updatePlaybackOrder = useCallback(
@@ -315,13 +299,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
     setVolume(clampedVolume);
   };
 
-  const seekTo = useCallback((time: number) => {
-    const audio = getActiveAudio();
-    if (audio) {
-      audio.currentTime = time;
-      setCurrentTime(time);
-    }
-  }, [getActiveAudio]);
+  const seekTo = useCallback(
+    (time: number) => {
+      const audio = getActiveAudio();
+      if (audio) {
+        audio.currentTime = time;
+        setCurrentTime(time);
+      }
+    },
+    [getActiveAudio]
+  );
 
   const playNext = () => {
     if (songsList.length === 0) return;
@@ -366,48 +353,59 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Play a specific song using the appropriate player
-  const playSong = useCallback((song: Song, playerType?: AudioPlayerType) => {
-    const targetPlayer = playerType || activePlayer;
+  const playSong = useCallback(
+    (song: Song, playerType?: AudioPlayerType) => {
+      const targetPlayer = playerType || activePlayer;
 
-    // If we're switching player types, pause the current one
-    if (targetPlayer !== activePlayer) {
-      // Pause the audio element for the current player
-      if (audioRefs.current[activePlayer]) {
-        audioRefs.current[activePlayer]?.pause();
+      // If we're switching player types, pause the current one
+      if (targetPlayer !== activePlayer) {
+        // Pause the audio element for the current player
+        if (audioRefs.current[activePlayer]) {
+          audioRefs.current[activePlayer]?.pause();
+        }
+        setActivePlayer(targetPlayer);
       }
-      setActivePlayer(targetPlayer);
-    }
 
-    // Update song index in playback order
-    const songIndex = songsList.findIndex((s) => s.id === song.id);
-    if (songIndex !== -1) {
-      const playbackOrderIndex = playbackOrder.findIndex(
-        (i) => i === songIndex
-      );
-      if (playbackOrderIndex !== -1) {
-        setCurrentSongIndex(playbackOrderIndex);
-      }
-    }
-
-    // Set the current song
-    setCurrentSong(song);
-
-    // Update audio source and play
-    const audio = audioRefs.current[targetPlayer];
-    if (audio) {
-      audio.src = song.audioUrl;
-      audio.volume = volume;
-
-      // Play the song
-      audio
-        .play()
-        .catch((error) =>
-          console.error(`Playback error (${targetPlayer}):`, error)
+      // Update song index in playback order
+      const songIndex = songsList.findIndex((s) => s.id === song.id);
+      if (songIndex !== -1) {
+        const playbackOrderIndex = playbackOrder.findIndex(
+          (i) => i === songIndex
         );
+        if (playbackOrderIndex !== -1) {
+          setCurrentSongIndex(playbackOrderIndex);
+        }
+      }
 
-      setIsPlaying(true);
-    }
-  }, [activePlayer, playbackOrder, songsList, volume]);
+      // Set the current song
+      setCurrentSong(song);
+
+      // Update audio source and play
+      const audio = audioRefs.current[targetPlayer];
+      if (audio) {
+        audio.src = song.audioUrl;
+        audio.volume = volume;
+
+        // Play the song
+        audio
+          .play()
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch((error) => {
+            console.error(`Playback error (${targetPlayer}):`, error);
+            // Auto-retry once after a short delay
+            setTimeout(() => {
+              audio
+                .play()
+                .then(() => setIsPlaying(true))
+                .catch((e) => console.error("Retry failed:", e));
+            }, 300);
+          });
+      }
+    },
+    [activePlayer, playbackOrder, songsList, volume]
+  );
 
   // Preload specific song assets (audio and cover art)
   const preloadAssets = async (songIds: number[]): Promise<void> => {
@@ -475,6 +473,36 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({
       });
     }
   };
+
+  // Load songs from JSON data
+  const loadSongs = useCallback(async (): Promise<void> => {
+    if (songsLoadedRef.current) return; // Skip if already loaded
+
+    try {
+      setIsLoading(true);
+      // In a real application, you might fetch this from an API
+      const songs = songsData.songs as Song[];
+      setSongsList(songs);
+
+      // Mark as loaded to prevent future calls
+      songsLoadedRef.current = true;
+
+      // Update playback order after loading songs
+      updatePlaybackOrder(songs, isShuffling);
+
+      // Preload the first few songs
+      if (songs.length > 0) {
+        await preloadAssets(
+          songs.slice(0, Math.min(3, songs.length)).map((song) => song.id)
+        );
+      }
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Failed to load songs:", error);
+      setIsLoading(false);
+    }
+  }, [isShuffling, preloadAssets, updatePlaybackOrder]);
 
   const contextValue = {
     currentSong,

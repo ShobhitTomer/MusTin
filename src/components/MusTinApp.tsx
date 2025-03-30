@@ -143,30 +143,32 @@ const MusTinAppWrapper: React.FC = () => {
           .register("/serviceWorker.js")
           .then((registration) => {
             console.log(
-              "ServiceWorker registration successful with scope: ",
+              "ServiceWorker registration successful:",
               registration.scope
             );
           })
           .catch((error) => {
-            console.log("ServiceWorker registration failed: ", error);
+            console.log("ServiceWorker registration failed:", error);
           });
       });
     }
 
     // Load songs data
     loadSongs();
-
-    // Reset playlist on app load
-    // This could be removed if you want to persist playlist between sessions
-    localStorage.removeItem("mustin_playlist");
   }, [loadSongs]);
 
   // Load playlist from local storage on initial load
   useEffect(() => {
     const savedPlaylist = localStorage.getItem("mustin_playlist");
     if (savedPlaylist) {
-      // If you want to implement loading the playlist from localStorage
-      // You can parse and set it here
+      try {
+        const parsedPlaylist = JSON.parse(savedPlaylist);
+        if (Array.isArray(parsedPlaylist)) {
+          // Apply the saved playlist if needed
+        }
+      } catch (e) {
+        console.error("Error parsing saved playlist:", e);
+      }
     }
   }, []);
 
@@ -315,6 +317,7 @@ const MusTinAppWrapper: React.FC = () => {
         </AnimatePresence>
       </ContentContainer>
 
+      {/* Bottom Navigation Bar - Crucial component that was missing */}
       <NavBar>
         <NavButton
           active={activeScreen === AppScreen.DISCOVER}
