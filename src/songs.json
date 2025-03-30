@@ -6,8 +6,8 @@
         "artist": "Dream, Alec Benjamin",
         "album": "Dream",
         "duration": 354,
-        "coverUrl": "/src/assets/images/changemyclothes.jpg",
-        "audioUrl": "/src/assets/songs/ChangeMyClothes.mp33"
+        "coverUrl": "./src/assets/images/changemyclothes.jpg",
+        "audioUrl": "./src/assets/songs/ChangeMyClothes.mp33"
       },
       {
         "id": 2,
@@ -15,8 +15,8 @@
         "artist": "The Weeknd",
         "album": "After Hours",
         "duration": 200,
-        "coverUrl": "/src/assets/images/blinding_lights.jpeg",
-        "audioUrl": "/src/assets/songs/The_Weeknd-Blinding_Lights.mp3"
+        "coverUrl": "./src/assets/images/blinding_lights.jpeg",
+        "audioUrl": "./src/assets/songs/The_Weeknd-Blinding_Lights.mp3"
       },
       {
         "id": 3,
