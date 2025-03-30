@@ -1,7 +1,7 @@
 import React from "react";
 import styled from "styled-components";
 import { motion, PanInfo, AnimatePresence } from "framer-motion";
-import { FaMusic, FaPlay, FaTimes, FaTrash } from "react-icons/fa";
+import { FaMusic, FaPlay, FaTrash } from "react-icons/fa";
 import { useAudio } from "../context/AudioContext";
 import { Song } from "../types/types";
 
@@ -164,7 +164,7 @@ const Playlist: React.FC<PlaylistProps> = ({
   onRemove,
   onPlay,
 }) => {
-  const { songsList, playSong, getSongById } = useAudio();
+  const { playSong, getSongById } = useAudio();
 
   // Get the full song details for songs in the playlist
   const playlistSongs = playlistSongIds

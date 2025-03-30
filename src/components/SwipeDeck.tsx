@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import {
   motion,
@@ -179,7 +179,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
   onAdd,
   onPlay,
 }) => {
-  const { songsList, playSong, isInPlaylist } = useAudio();
+  const { songsList, playSong } = useAudio();
 
   // Filter out songs that are already in the playlist
   const availableSongs = songsList.filter(

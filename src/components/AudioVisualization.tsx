@@ -36,7 +36,7 @@ const AudioVisualization: React.FC<AudioVisualizationProps> = ({
 }) => {
   const { isPlaying, currentSong } = useAudio();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number>(1);
   const [isSetup, setIsSetup] = useState(false);
 
   // Audio context states

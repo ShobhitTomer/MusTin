@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaMusic, FaHeart, FaHome, FaList, FaFire } from "react-icons/fa";
+import { FaMusic, FaList, FaFire } from "react-icons/fa";
 import SwipeDeck from "./SwipeDeck";
 import Playlist from "./Playlist";
 import { AudioProvider, useAudio } from "../context/AudioContext";
