@@ -1,0 +1,31 @@
+{
+    "songs": [
+      {
+        "id": 1,
+        "title": "Bohemian Rhapsody",
+        "artist": "Queen",
+        "album": "A Night at the Opera",
+        "duration": 354,
+        "coverUrl": "/src/assets/images/bohemian_raspody.jpg",
+        "audioUrl": "src/assets/songs/Queen-Bohemian_Rhapsody.mp3"
+      },
+      {
+        "id": 2,
+        "title": "Blinding Lights",
+        "artist": "The Weeknd",
+        "album": "After Hours",
+        "duration": 200,
+        "coverUrl": "/src/assets/images/blinding_lights.jpeg",
+        "audioUrl": "/src/assets/songs/The_Weeknd-Blinding_Lights.mp3"
+      },
+      {
+        "id": 3,
+        "title": "Shape of You",
+        "artist": "Ed Sheeran",
+        "album": "÷ (Divide)",
+        "duration": 235,
+        "coverUrl": "/src/assets/images/shapeOfYou.jpeg",
+        "audioUrl": "/src/assets/songs/Ed_Sheeran-Shape_Of_You.mp3"
+      }
+    ]
+  }

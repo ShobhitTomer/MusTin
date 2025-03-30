@@ -1,0 +1,130 @@
+/* Base styles for mobile app */
+:root {
+  /* Variables that match our theme */
+  --color-primary: #FA586A;
+  --color-primary-dark: #E51D40;
+  --color-primary-light: #FF8A9A;
+  --color-background: #111111;
+  --color-background-light: #222222;
+  --color-text: #FFFFFF;
+  --color-text-secondary: rgba(255, 255, 255, 0.8);
+  --color-text-tertiary: rgba(255, 255, 255, 0.6);
+  
+  /* Font sizes optimized for mobile */
+  --font-size-xs: 10px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-xxl: 22px;
+  
+  /* System fonts for better performance */
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+/* Ensure app takes full screen and disables overscroll effects */
+body, html {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: fixed;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+/* Default text styles */
+body {
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* App container */
+#root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Default link styles */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+/* Button reset */
+button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  outline: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Custom scrollbar (hidden but functional) */
+::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}
+
+/* For iOS safe area support */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-area-padding-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-padding-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-padding-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-padding-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Active, hover, focus state */
+.active {
+  color: var(--color-primary);
+}
+
+/* Animation classes */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Media queries for different device sizes */
+@media (min-width: 375px) {
+  :root {
+    --font-size-md: 15px;
+    --font-size-lg: 17px;
+    --font-size-xl: 20px;
+    --font-size-xxl: 24px;
+  }
+}
+
+@media (min-height: 700px) {
+  .album-cover-wrapper {
+    height: 280px !important;
+    width: 280px !important;
+  }
+}
