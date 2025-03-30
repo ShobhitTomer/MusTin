@@ -7,7 +7,7 @@
         "album": "Dream",
         "duration": 354,
         "coverUrl": "/assets/Images/changemyclothes.jpg",
-        "audioUrl": "/assets/songs/ChangeMyClothes.mp33"
+        "audioUrl": "/assets/songs/ChangeMyClothes.mp3"
       },
       {
         "id": 2,
@@ -24,8 +24,8 @@
         "artist": "Ed Sheeran",
         "album": "÷ (Divide)",
         "duration": 235,
-        "coverUrl": "./public/assets/Images/shapeOfYou.jpeg",
-        "audioUrl": "./public/assets/songs/Ed_Sheeran-Shape_Of_You.mp3"
+        "coverUrl": "/assets/Images/shapeOfYou.jpeg",
+        "audioUrl": "/assets/songs/Ed_Sheeran-Shape_Of_You.mp3"
       },
       {
         "id": 4,
@@ -33,8 +33,8 @@
         "artist": "Queen",
         "album": "A Night at the Opera",
         "duration": 354,
-        "coverUrl": "/src/assets/images/bohemian_raspody.jpg",
-        "audioUrl": "src/assets/songs/Queen-Bohemian_Rhapsody.mp3"
+        "coverUrl": "/assets/Images/bohemian_raspody.jpg",
+        "audioUrl": "/assets/songs/Queen-Bohemian_Rhapsody.mp3"
       },
       {
         "id": 5,
@@ -42,8 +42,8 @@
         "artist": "The Weeknd",
         "album": "Starboy",
         "duration": 200,
-        "coverUrl": "/src/assets/images/starboy.png",
-        "audioUrl": "/src/assets/songs/starboy.mp3"
+        "coverUrl": "/assets/Images/starboy.png",
+        "audioUrl": "/assets/songs/starboy.mp3"
       }
     ]
   }
