@@ -13,8 +13,9 @@ import {
 import { useAudio } from "../context/AudioContext";
 
 const PlayerContainer = styled(motion.div)`
-  position: absolute;
-  bottom: 60px; /* Position above the navbar */
+  position: fixed;
+  /* Position it above the navbar, leaving the navbar visible at the bottom */
+  bottom: 60px;
   left: 0;
   right: 0;
   background: rgba(20, 20, 20, 0.95);
@@ -23,8 +24,7 @@ const PlayerContainer = styled(motion.div)`
   border-top-right-radius: 16px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
   overflow: hidden;
-  z-index: 200; /* Make sure this is below navbar (100) but above other content */
-  transform: translateZ(0);
+  z-index: 95;
 `;
 
 const MiniPlayerBar = styled.div`

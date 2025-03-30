@@ -55,8 +55,8 @@ const ContentContainer = styled.div`
   display: flex;
   flex-direction: column;
   position: relative;
-  /* Add padding at bottom for nav bar and miniplayer */
-  padding-bottom: 125px; /* Increased to make room for both navbar and miniplayer */
+  /* Add padding at bottom for navbar only - miniplayer will position itself */
+  padding-bottom: 60px; /* Match the navbar height */
   margin-bottom: env(safe-area-inset-bottom, 0);
 `;
 
@@ -82,7 +82,7 @@ const NavBar = styled.div`
   align-items: center;
   justify-content: space-around;
   padding-bottom: env(safe-area-inset-bottom, 0);
-  z-index: 150;
+  z-index: 100;
   position: fixed;
   bottom: 0;
   left: 0;
