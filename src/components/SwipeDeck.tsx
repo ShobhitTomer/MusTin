@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
-import { FaPlay, FaHeart, FaTimes, FaMusic } from "react-icons/fa";
+import { FaPlay, FaPause, FaHeart, FaTimes, FaMusic } from "react-icons/fa";
 import { useAudio } from "../context/AudioContext";
 import { Song } from "../types/types";
 
@@ -21,28 +21,11 @@ const CardStack = styled.div`
   position: relative;
   width: 100%;
   max-width: 320px;
-  height: 480px; /* Reduced height to move cards up */
+  height: 480px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 80px; /* Add space at bottom for miniplayer */
-`;
-
-const SwipeInstructions = styled.div`
-  position: absolute;
-  bottom: 20px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  z-index: 5;
-  pointer-events: none;
-  display: none; /* Hide instructions to save space */
+  margin-bottom: 80px;
 `;
 
 const EmptyDeck = styled.div`
@@ -198,16 +181,17 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     songsList,
     playSong,
     currentSong,
+    isPlaying,
+    togglePlay,
     playNext,
     songChangeSource,
     setSongChangeSource,
     activePlayer,
+    setActivePlayer,
   } = useAudio();
 
   // State to hold all songs not in playlist
   const [availableSongs, setAvailableSongs] = useState<Song[]>([]);
-
-  // State to track current set of cards (showing 3 at a time for stack effect)
   const [currentStack, setCurrentStack] = useState<Song[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -218,6 +202,16 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
   // Swipe indicators
   const swipeLeftOpacity = useTransform(x, [-100, -20, 0], [1, 0, 0]);
   const swipeRightOpacity = useTransform(x, [0, 20, 100], [0, 0, 1]);
+
+  // Function to check if a specific song is currently playing
+  const isSongPlaying = useCallback(
+    (songId: number) => {
+      return (
+        isPlaying && currentSong?.id === songId && activePlayer === "discover"
+      );
+    },
+    [isPlaying, currentSong, activePlayer]
+  );
 
   // Whenever playlist changes, update available songs
   useEffect(() => {
@@ -408,7 +402,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
       setTimeout(() => {
         x.set(0);
         setIsAnimating(false);
-      }, 200); // Reduced from 300ms
+      }, 200);
     } else if (
       info.offset.x < -swipeThreshold ||
       info.velocity.x < -velocityThreshold
@@ -432,7 +426,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
       setTimeout(() => {
         x.set(0);
         setIsAnimating(false);
-      }, 200); // Reduced from 300ms
+      }, 200);
     } else {
       // Return to center if not swiped far enough - quick spring
       x.set(0);
@@ -442,15 +436,25 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     }
   };
 
-  // Handle play button click
-  const handlePlay = (song: Song, e: React.MouseEvent) => {
+  // Handle play/pause button click
+  const handlePlayPauseToggle = (song: Song, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card swipe when clicking play
-    setSongChangeSource("card"); // Set source to card
-    playSong(song);
-    onPlay(song.id);
+
+    // Make sure discover player is active when interacting with card
+    setActivePlayer("discover");
+
+    if (currentSong?.id === song.id && activePlayer === "discover") {
+      // If this is already the current song, just toggle play/pause
+      togglePlay();
+    } else {
+      // Otherwise play the new song
+      setSongChangeSource("card");
+      playSong(song, "discover");
+      onPlay(song.id);
+    }
   };
 
-  // Simple, smooth animation for button actions
+  // Handle discard button click
   const handleDiscard = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentStack.length || isAnimating) return;
@@ -489,6 +493,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     }, 400);
   };
 
+  // Handle add to playlist button click
   const handleAddToPlaylist = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentStack.length || isAnimating) return;
@@ -544,6 +549,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
           currentStack.map((song, index) => {
             // Only make the top card draggable
             const isDraggable = index === 0;
+            const isCurrentlyPlaying = isSongPlaying(song.id);
 
             return (
               <Card
@@ -599,10 +605,14 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
                     </ActionButton>
 
                     <PlayButton
-                      onClick={(e) => handlePlay(song, e)}
+                      onClick={(e) => handlePlayPauseToggle(song, e)}
                       whileTap={{ scale: 0.9 }}
                     >
-                      <FaPlay size={20} />
+                      {isCurrentlyPlaying ? (
+                        <FaPause size={20} />
+                      ) : (
+                        <FaPlay size={20} />
+                      )}
                     </PlayButton>
 
                     <ActionButton
@@ -619,10 +629,6 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
           })
         )}
       </CardStack>
-
-      <SwipeInstructions>
-        <div>Swipe left to pass, right to add</div>
-      </SwipeInstructions>
     </SwipeDeckContainer>
   );
 };
