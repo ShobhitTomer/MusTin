@@ -14,7 +14,7 @@ import { useAudio } from "../context/AudioContext";
 
 const PlayerContainer = styled(motion.div)`
   position: absolute;
-  bottom: 0;
+  bottom: 60px; /* Position above the navbar instead of 0 */
   left: 0;
   right: 0;
   background: rgba(20, 20, 20, 0.95);
@@ -23,8 +23,7 @@ const PlayerContainer = styled(motion.div)`
   border-top-right-radius: 16px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
   overflow: hidden;
-  z-index: 100;
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  z-index: 90; /* Below the navbar z-index of 100 */
 `;
 
 const MiniPlayerBar = styled.div`
@@ -198,7 +197,10 @@ interface MiniPlayerProps {
   onMinimize: () => void;
 }
 
-const MiniPlayer: React.FC<MiniPlayerProps> = ({ playerType, onMinimize }) => {
+const MiniPlayer: React.FC<MiniPlayerProps> = ({
+  playerType,
+  onMinimize,
+}) => {
   const {
     currentSong,
     isPlaying,

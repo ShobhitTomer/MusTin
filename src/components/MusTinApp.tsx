@@ -55,6 +55,9 @@ const ContentContainer = styled.div`
   display: flex;
   flex-direction: column;
   position: relative;
+  /* Add padding at bottom for nav bar */
+  padding-bottom: 60px;
+  margin-bottom: env(safe-area-inset-bottom, 0);
 `;
 
 const Screen = styled(motion.div)`
@@ -73,13 +76,17 @@ const Screen = styled(motion.div)`
 const NavBar = styled.div`
   height: 60px;
   width: 100%;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.8);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-around;
   padding-bottom: env(safe-area-inset-bottom, 0);
-  z-index: 20;
+  z-index: 100;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
 `;
 
 const NavButton = styled.button<{ active?: boolean }>`
@@ -91,13 +98,14 @@ const NavButton = styled.button<{ active?: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 10px;
+  font-size: 12px;
   gap: 4px;
   cursor: pointer;
   transition: color 0.2s ease;
+  width: 50%;
 
   &:active {
-    opacity: 0.7;
+    color: ${({ theme }) => theme.colors.primaryLight};
   }
 `;
 

@@ -328,14 +328,35 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
     onPlay(song.id);
   };
 
-  // Handle swipe action buttons
+  // Simple, smooth animation for button actions
   const handleDiscard = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentStack.length || isAnimating) return;
 
+    const currentSong = currentStack[0];
     setIsAnimating(true);
-    handleNextCard(false, currentStack[0].id);
-    setTimeout(() => setIsAnimating(false), 200);
+
+    // Use Framer Motion's built-in animation
+    const card = document.getElementById(`card-${currentSong.id}`);
+    if (card) {
+      card.animate(
+        [
+          { transform: "translateX(0) rotate(0deg)" },
+          { transform: "translateX(-400px) rotate(-5deg)" },
+        ],
+        {
+          duration: 400,
+          easing: "ease-out",
+          fill: "forwards",
+        }
+      );
+    }
+
+    // Wait for animation to complete
+    setTimeout(() => {
+      handleNextCard(false, currentSong.id);
+      setIsAnimating(false);
+    }, 400);
   };
 
   const handleAddToPlaylist = (e: React.MouseEvent) => {
@@ -344,9 +365,29 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
 
     const currentSong = currentStack[0];
     setIsAnimating(true);
-    onAdd(currentSong.id);
-    handleNextCard(true, currentSong.id);
-    setTimeout(() => setIsAnimating(false), 200);
+
+    // Use Framer Motion's built-in animation
+    const card = document.getElementById(`card-${currentSong.id}`);
+    if (card) {
+      card.animate(
+        [
+          { transform: "translateX(0) rotate(0deg)" },
+          { transform: "translateX(400px) rotate(5deg)" },
+        ],
+        {
+          duration: 400,
+          easing: "ease-out",
+          fill: "forwards",
+        }
+      );
+    }
+
+    // Wait for animation to complete
+    setTimeout(() => {
+      onAdd(currentSong.id);
+      handleNextCard(true, currentSong.id);
+      setIsAnimating(false);
+    }, 400);
   };
 
   return (
@@ -369,6 +410,7 @@ const SwipeDeck: React.FC<SwipeDeckProps> = ({
             return (
               <Card
                 key={song.id}
+                id={`card-${song.id}`}
                 style={{
                   zIndex: currentStack.length - index,
                   scale: 1 - index * 0.05, // Stack effect - cards get slightly smaller
